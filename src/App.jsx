@@ -630,7 +630,7 @@ function App() {
               <small>See where your money is actually going.</small>
             </article>
             <article className="auth-highlight-card">
-              <strong>BABY Snapshot</strong>
+              <strong>B.A.B.Y. Snapshot</strong>
               <small>Take the guesswork out of finanical planning.</small>
             </article>
           </div>
@@ -748,9 +748,15 @@ function App() {
   return (
     <main className="app-shell">
       <header className="home-header">
-        <div>
+        <div className="home-header-copy">
           <p className="eyebrow">BABY Finance</p>
-          <h1>Welcome, {user.firstName || user.email || 'there'}</h1>
+          <div className="home-title-row">
+            <span className="money-badge" aria-hidden="true">
+              $
+            </span>
+            <h1>Welcome, {user.firstName || user.email || 'there'}</h1>
+          </div>
+          <p className="home-subtitle">Income planning, paydays, and budget tracking in one place.</p>
         </div>
         <button
           type="button"
@@ -1236,7 +1242,7 @@ function App() {
       <section className="budget-panel" aria-labelledby="budget-heading">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">BABY Snapshot</p>
+            <p className="eyebrow">B.A.B.Y. Snapshot</p>
             <h2 id="budget-heading">Monthly Budget</h2>
           </div>
           <button type="button">Add Category</button>

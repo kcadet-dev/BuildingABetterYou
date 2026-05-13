@@ -255,6 +255,36 @@ button:disabled {
   justify-content: space-between;
 }
 
+.home-header-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.home-title-row {
+  align-items: center;
+  display: flex;
+  gap: 0.85rem;
+}
+
+.money-badge {
+  align-items: center;
+  background: linear-gradient(180deg, #1a8f77 0%, #136f63 100%);
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgb(19 111 99 / 0.18);
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 1.2rem;
+  font-weight: 800;
+  height: 2.5rem;
+  justify-content: center;
+  width: 2.5rem;
+}
+
+.home-subtitle {
+  color: var(--muted);
+  margin: 0;
+}
+
 .secondary-button {
   background: #ebf0ed;
   color: var(--copy);
@@ -753,6 +783,10 @@ progress {
     align-items: stretch;
     flex-direction: column;
     grid-template-columns: 1fr;
+  }
+
+  .home-title-row {
+    align-items: flex-start;
   }
 
   .panel-heading:not(.calendar-header) {
