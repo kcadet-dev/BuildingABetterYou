@@ -1,0 +1,364 @@
+:root {
+  color: #1f2937;
+  background: #f4f7f5;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0.75rem 1rem;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.auth-page {
+  align-items: center;
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 420px);
+  margin: 0 auto;
+  max-width: 1040px;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.brand-panel h1,
+.home-header h1 {
+  font-size: clamp(2.5rem, 7vw, 4.75rem);
+  line-height: 1;
+  margin: 0.25rem 0 1rem;
+}
+
+.brand-panel p {
+  max-width: 560px;
+}
+
+.auth-card,
+.budget-panel {
+  background: white;
+  border: 1px solid #dbe4df;
+  border-radius: 8px;
+  box-shadow: 0 18px 45px rgb(31 41 55 / 0.08);
+}
+
+.auth-card {
+  padding: 1.25rem;
+}
+
+.auth-card h2 {
+  margin: 1rem 0;
+}
+
+.mode-switch {
+  background: #e8eee9;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 0.25rem;
+}
+
+.mode-switch button {
+  background: transparent;
+  color: #475569;
+}
+
+.mode-switch button.active {
+  background: white;
+  color: #111827;
+  box-shadow: 0 6px 18px rgb(31 41 55 / 0.08);
+}
+
+.auth-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-form label {
+  color: #374151;
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 700;
+}
+
+.auth-form input,
+.income-form input,
+.income-form select {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.8rem;
+  width: 100%;
+}
+
+.auth-form input:focus,
+.income-form input:focus,
+.income-form select:focus {
+  border-color: #2563eb;
+  outline: 3px solid rgb(37 99 235 / 0.14);
+}
+
+.auth-form button,
+.panel-heading button,
+.income-form button {
+  background: #2563eb;
+  color: white;
+}
+
+.form-message {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 6px;
+  color: #be123c;
+  margin: 0;
+  padding: 0.75rem;
+}
+
+.app-shell {
+  display: grid;
+  gap: 1.5rem;
+  margin: 0 auto;
+  max-width: 1180px;
+  min-height: 100vh;
+  padding: 3rem 1rem;
+}
+
+.home-header {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.secondary-button {
+  background: #e8eee9;
+  color: #1f2937;
+}
+
+.summary-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.summary-grid article {
+  background: white;
+  border: 1px solid #dbe4df;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.summary-grid strong {
+  display: block;
+  font-size: 2rem;
+  line-height: 1.1;
+  margin: 0.4rem 0 0.2rem;
+}
+
+.summary-grid span {
+  color: #6b7280;
+}
+
+.eyebrow {
+  color: #0f766e;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.workspace-grid {
+  align-items: start;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+}
+
+.budget-panel,
+.calendar-panel,
+.income-panel {
+  background: white;
+  border: 1px solid #dbe4df;
+  border-radius: 8px;
+  box-shadow: 0 18px 45px rgb(31 41 55 / 0.08);
+  padding: 1rem;
+}
+
+.panel-heading {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.panel-heading h2,
+.budget-card h3 {
+  margin: 0;
+}
+
+.budget-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.budget-card,
+.income-item {
+  border: 1px solid #dbe4df;
+  border-radius: 8px;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.budget-card {
+  display: grid;
+}
+
+.income-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.income-form label {
+  color: #374151;
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 700;
+}
+
+.income-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.income-item {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.income-item h3,
+.income-item p {
+  margin: 0;
+}
+
+.income-item p,
+.empty-state {
+  color: #6b7280;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar-weekdays {
+  color: #6b7280;
+  font-size: 0.8rem;
+  font-weight: 800;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+  text-align: center;
+}
+
+.calendar-grid {
+  gap: 0.35rem;
+}
+
+.calendar-day {
+  background: #f8fafc;
+  border: 1px solid #dbe4df;
+  border-radius: 6px;
+  min-height: 6.75rem;
+  overflow: hidden;
+  padding: 0.45rem;
+}
+
+.calendar-day.today {
+  border-color: #2563eb;
+  box-shadow: inset 0 0 0 2px rgb(37 99 235 / 0.18);
+}
+
+.calendar-day.empty {
+  background: transparent;
+  border-color: transparent;
+}
+
+.calendar-day span {
+  display: block;
+  font-weight: 800;
+  margin-bottom: 0.35rem;
+}
+
+.calendar-day p {
+  background: #dcfce7;
+  border-radius: 5px;
+  color: #14532d;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  margin: 0.25rem 0 0;
+  padding: 0.25rem 0.35rem;
+}
+
+.budget-card p {
+  color: #6b7280;
+  margin: 0.25rem 0 0;
+}
+
+progress {
+  accent-color: #0f766e;
+  height: 0.75rem;
+  width: 100%;
+}
+
+@media (max-width: 760px) {
+  .auth-page {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+
+  .home-header,
+  .panel-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .summary-grid,
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-day {
+    min-height: 5.25rem;
+    padding: 0.3rem;
+  }
+
+  .calendar-day p {
+    font-size: 0.7rem;
+  }
+}

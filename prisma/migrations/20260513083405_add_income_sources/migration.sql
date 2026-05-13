@@ -1,0 +1,12 @@
+-- CreateTable
+CREATE TABLE "IncomeSource" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "jobName" TEXT NOT NULL,
+    "amount" DECIMAL NOT NULL,
+    "frequency" TEXT NOT NULL,
+    "nextPayDate" DATETIME NOT NULL,
+    "userId" INTEGER NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "IncomeSource_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
