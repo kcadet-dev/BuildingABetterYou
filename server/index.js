@@ -10,6 +10,34 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function parseDateInput(dateValue) {
+  if (!dateValue) {
+    return null;
+  }
+
+  const [year, month, day] = String(dateValue).split('-').map(Number);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  return new Date(year, month - 1, day, 12);
+}
+
+function serializeUser(user) {
+  return {
+    createdAt: user.createdAt,
+    email: user.email,
+    firstName: user.firstName,
+    id: user.id,
+    lastName: user.lastName,
+  };
+}
+
 function serializeIncomeSource(incomeSource) {
   return {
     ...incomeSource,
@@ -109,10 +137,24 @@ app.get('/api/health', (req, res) => {
 });
 
 app.post('/api/auth/register', async (req, res) => {
-  const { username, password } = req.body;
+  const { dateOfBirth, email, firstName, lastName, password } = req.body;
+  const normalizedEmail = normalizeEmail(email);
+  const trimmedFirstName = String(firstName || '').trim();
+  const trimmedLastName = String(lastName || '').trim();
+  const parsedDateOfBirth = parseDateInput(dateOfBirth);
 
-  if (!username || !password) {
-    return res.status(400).json({ message: 'Username and password are required.' });
+  if (!trimmedFirstName || !trimmedLastName || !normalizedEmail || !dateOfBirth || !password) {
+    return res.status(400).json({
+      message: 'First name, last name, date of birth, email, and password are required.',
+    });
+  }
+
+  if (!normalizedEmail.includes('@')) {
+    return res.status(400).json({ message: 'Enter a valid email address.' });
+  }
+
+  if (!parsedDateOfBirth || Number.isNaN(parsedDateOfBirth.getTime())) {
+    return res.status(400).json({ message: 'Enter a valid date of birth.' });
   }
 
   if (password.length < 6) {
@@ -123,20 +165,19 @@ app.post('/api/auth/register', async (req, res) => {
     const passwordHash = await hashPassword(password);
     const user = await prisma.user.create({
       data: {
-        username,
+        dateOfBirth: parsedDateOfBirth,
+        email: normalizedEmail,
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName,
         passwordHash,
-      },
-      select: {
-        id: true,
-        username: true,
-        createdAt: true,
+        username: normalizedEmail,
       },
     });
 
-    res.status(201).json(user);
+    res.status(201).json(serializeUser(user));
   } catch (error) {
     if (error.code === 'P2002') {
-      return res.status(409).json({ message: 'That username is already taken.' });
+      return res.status(409).json({ message: 'That email is already in use.' });
     }
 
     res.status(500).json({ message: 'Could not create account.' });
@@ -144,26 +185,24 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { email, password } = req.body;
+  const normalizedEmail = normalizeEmail(email);
 
-  if (!username || !password) {
-    return res.status(400).json({ message: 'Username and password are required.' });
+  if (!normalizedEmail || !password) {
+    return res.status(400).json({ message: 'Email and password are required.' });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { username },
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [{ email: normalizedEmail }, { username: normalizedEmail }],
+    },
   });
 
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
-    return res.status(401).json({ message: 'Invalid username or password.' });
+    return res.status(401).json({ message: 'Invalid email or password.' });
   }
 
-  res.json({
-    createdAt: user.createdAt,
-    id: user.id,
-    username: user.username,
-    message: 'Login successful. Sessions can be added in a future commit.',
-  });
+  res.json(serializeUser(user));
 });
 
 app.get('/api/users/:userId/income-sources', async (req, res) => {

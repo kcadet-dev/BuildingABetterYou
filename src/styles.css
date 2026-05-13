@@ -1,5 +1,5 @@
 :root {
-  --bg: linear-gradient(180deg, #eef6f1 0%, #f8fbf8 55%, #f3f7f4 100%);
+  --bg: linear-gradient(180deg, #edf4ef 0%, #f7faf8 45%, #eef4f0 100%);
   --card: #ffffff;
   --card-border: #d7e2db;
   --copy: #1f2937;
@@ -7,6 +7,7 @@
   --accent: #136f63;
   --accent-soft: #d8f0eb;
   --blue: #2563eb;
+  --ink-deep: #14352f;
   --rose-soft: #fff1f2;
   --rose-line: #fecdd3;
   --shadow: 0 18px 45px rgb(31 41 55 / 0.08);
@@ -47,11 +48,23 @@ button:disabled {
   align-items: center;
   display: grid;
   gap: 2rem;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 420px);
+  grid-template-columns: minmax(0, 1.2fr) minmax(340px, 430px);
   margin: 0 auto;
-  max-width: 1080px;
+  max-width: 1180px;
   min-height: 100vh;
   padding: 2rem;
+}
+
+.brand-panel {
+  background:
+    linear-gradient(180deg, rgb(15 55 47 / 0.98) 0%, rgb(19 79 67 / 0.96) 100%);
+  border: 1px solid rgb(19 79 67 / 0.45);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  color: #f7fbf9;
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.5rem;
 }
 
 .brand-panel h1,
@@ -65,27 +78,76 @@ button:disabled {
   max-width: 540px;
 }
 
-.auth-card,
-.budget-panel,
-.calendar-panel,
-.income-panel,
-.day-panel {
-  background: var(--card);
-  border: 1px solid var(--card-border);
+.brand-panel .eyebrow {
+  color: #bde8dc;
+}
+
+.brand-panel-copy {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.auth-intro {
+  color: #ffffff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.auth-subintro {
+  color: rgb(236 247 243 / 0.88);
+  line-height: 1.65;
+  margin: 0;
+}
+
+.auth-highlights {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.auth-highlight-card {
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(214 238 230 / 0.16);
   border-radius: 8px;
-  box-shadow: var(--shadow);
+  backdrop-filter: blur(2px);
+}
+
+.auth-highlight-card {
+  display: grid;
+  gap: 0.45rem;
+  min-height: 8.5rem;
+  padding: 1rem;
+}
+
+.auth-highlight-card strong {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff;
 }
 
 .auth-card {
-  padding: 1.25rem;
+  border: 1px solid #cfdbd3;
+  padding: 1.5rem;
+}
+
+.auth-card::before {
+  background: linear-gradient(90deg, var(--accent) 0%, #0f8a73 100%);
+  border-radius: 8px 8px 0 0;
+  content: "";
+  display: block;
+  height: 0.4rem;
+  margin: -1.5rem -1.5rem 1.5rem;
 }
 
 .auth-card h2 {
-  margin: 1rem 0;
+  margin: 0;
 }
 
 .mode-switch {
-  background: #e9f0ec;
+  background: #edf3ef;
   border-radius: 8px;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -98,8 +160,8 @@ button:disabled {
 }
 
 .mode-switch button.active {
-  background: var(--card);
-  color: #111827;
+  background: #ffffff;
+  color: var(--ink-deep);
   box-shadow: 0 6px 18px rgb(31 41 55 / 0.08);
 }
 
@@ -107,6 +169,28 @@ button:disabled {
 .income-form {
   display: grid;
   gap: 1rem;
+}
+
+.auth-copy {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.auth-copy p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.auth-highlight-card small {
+  color: rgb(239 247 244 / 0.82);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.auth-name-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .auth-form label,
@@ -130,8 +214,8 @@ button:disabled {
 .auth-form input:focus,
 .income-form input:focus,
 .income-form select:focus {
-  border-color: var(--blue);
-  outline: 3px solid rgb(37 99 235 / 0.14);
+  border-color: var(--accent);
+  outline: 3px solid rgb(19 111 99 / 0.14);
 }
 
 .auth-form button,
@@ -140,6 +224,10 @@ button:disabled {
 .panel-heading button:not(.month-arrow) {
   background: var(--blue);
   color: white;
+}
+
+.auth-form button {
+  background: var(--accent);
 }
 
 .form-message {
@@ -170,6 +258,17 @@ button:disabled {
 .secondary-button {
   background: #ebf0ed;
   color: var(--copy);
+}
+
+.auth-card,
+.budget-panel,
+.calendar-panel,
+.income-panel,
+.day-panel {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
 }
 
 .eyebrow {
@@ -626,6 +725,10 @@ progress {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .auth-highlights {
+    grid-template-columns: 1fr;
+  }
+
   .chart-grid,
   .chart-body,
   .workspace-grid,
@@ -662,7 +765,8 @@ progress {
   }
 
   .summary-grid,
-  .income-form-grid {
+  .income-form-grid,
+  .auth-name-grid {
     grid-template-columns: 1fr;
   }
 

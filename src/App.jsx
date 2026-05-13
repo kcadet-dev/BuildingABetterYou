@@ -15,6 +15,38 @@ const starterBudgets = [
   { id: 2, name: 'Savings', limit: 200, spent: 75 },
 ];
 const chartColors = ['#136f63', '#f59e0b', '#2563eb', '#dc2626', '#7c3aed', '#0f766e'];
+const authStorageKey = 'baby-finance-auth-session';
+const emptyAuthForm = {
+  dateOfBirth: '',
+  email: '',
+  firstName: '',
+  lastName: '',
+  password: '',
+};
+
+function readStoredAuthSession() {
+  if (typeof globalThis === 'undefined' || !globalThis.localStorage) {
+    return null;
+  }
+
+  try {
+    const rawSession = globalThis.localStorage.getItem(authStorageKey);
+
+    if (!rawSession) {
+      return null;
+    }
+
+    const parsedSession = JSON.parse(rawSession);
+
+    if (parsedSession?.version !== 1 || !parsedSession?.user?.id) {
+      return null;
+    }
+
+    return parsedSession.user;
+  } catch {
+    return null;
+  }
+}
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-US', {
@@ -224,15 +256,15 @@ function App() {
   const workWeek = useMemo(() => getWorkWeekRange(today), [today]);
 
   const [authMode, setAuthMode] = useState('login');
-  const [formData, setFormData] = useState({ username: '', password: '' });
+  const [formData, setFormData] = useState(emptyAuthForm);
   const [incomeForm, setIncomeForm] = useState(createDefaultIncomeForm(today));
   const [incomeSources, setIncomeSources] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStart);
-  const [selectedDay, setSelectedDay] = useState(today);
+  const [selectedDay, setSelectedDay] = useState(null);
   const [editingIncomeSourceId, setEditingIncomeSourceId] = useState(null);
   const [activePlannerTab, setActivePlannerTab] = useState('income');
   const [activePage, setActivePage] = useState('planner');
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => readStoredAuthSession());
   const [message, setMessage] = useState('');
   const [incomeMessage, setIncomeMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -284,7 +316,8 @@ function App() {
     [displayedMonthEnd, incomeSources, selectedMonth],
   );
   const selectedDayIncome = useMemo(
-    () => displayedMonthIncome.filter((income) => isSameDay(income.date, selectedDay)),
+    () =>
+      selectedDay ? displayedMonthIncome.filter((income) => isSameDay(income.date, selectedDay)) : [],
     [displayedMonthIncome, selectedDay],
   );
   const calendarDays = useMemo(
@@ -336,6 +369,26 @@ function App() {
     }
 
     loadIncomeSources();
+  }, [user]);
+
+  useEffect(() => {
+    if (typeof globalThis === 'undefined' || !globalThis.localStorage) {
+      return;
+    }
+
+    if (!user) {
+      globalThis.localStorage.removeItem(authStorageKey);
+      return;
+    }
+
+    globalThis.localStorage.setItem(
+      authStorageKey,
+      JSON.stringify({
+        provider: 'local-api',
+        user,
+        version: 1,
+      }),
+    );
   }, [user]);
 
   const handleChange = (event) => {
@@ -412,6 +465,13 @@ function App() {
     setMessage('');
 
     const endpoint = authMode === 'login' ? 'login' : 'register';
+    const payload =
+      authMode === 'login'
+        ? {
+            email: formData.email,
+            password: formData.password,
+          }
+        : formData;
 
     try {
       const response = await fetch(`${apiBaseUrl}/api/auth/${endpoint}`, {
@@ -419,7 +479,7 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       const data = await response.json();
 
@@ -427,11 +487,17 @@ function App() {
         throw new Error(data.message || 'Something went wrong.');
       }
 
-      setUser({ createdAt: data.createdAt, id: data.id, username: data.username });
+      setUser({
+        createdAt: data.createdAt,
+        email: data.email,
+        firstName: data.firstName,
+        id: data.id,
+        lastName: data.lastName,
+      });
       setActivePage('planner');
       setSelectedMonth(currentMonthStart);
-      setSelectedDay(today);
-      setFormData({ username: '', password: '' });
+      setSelectedDay(null);
+      setFormData(emptyAuthForm);
       setIncomeMessage('');
     } catch (error) {
       setMessage(error.message);
@@ -541,16 +607,33 @@ function App() {
     }
 
     setSelectedMonth(nextMonth);
-    setSelectedDay(new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 1));
+    setSelectedDay(null);
   };
 
   if (!user) {
     return (
       <main className="auth-page">
         <section className="brand-panel">
-          <p className="eyebrow">Building a Better You</p>
-          <h1>BABY Finance</h1>
-          <p>Start with one account, then build the budgeting tools around it.</p>
+          <div className="brand-panel-copy">
+            <p className="eyebrow">Building a Better You</p>
+            <h1>BABY Finance</h1>
+            <p className="auth-intro">Your Money. Your Budget. Your Way.</p>
+          </div>
+
+          <div className="auth-highlights" aria-label="Money planning highlights">
+            <article className="auth-highlight-card">
+              <strong>Expected Income</strong>
+              <small>Track paydays before they hit.</small>
+            </article>
+            <article className="auth-highlight-card">
+              <strong>Planned Spending</strong>
+              <small>See where your money is actually going.</small>
+            </article>
+            <article className="auth-highlight-card">
+              <strong>BABY Snapshot</strong>
+              <small>Take the guesswork out of finanical planning.</small>
+            </article>
+          </div>
         </section>
 
         <section className="auth-card" aria-labelledby="auth-heading">
@@ -558,33 +641,85 @@ function App() {
             <button
               className={authMode === 'login' ? 'active' : ''}
               type="button"
-              onClick={() => setAuthMode('login')}
+              onClick={() => {
+                setAuthMode('login');
+                setMessage('');
+              }}
             >
               Login
             </button>
             <button
               className={authMode === 'register' ? 'active' : ''}
               type="button"
-              onClick={() => setAuthMode('register')}
+              onClick={() => {
+                setAuthMode('register');
+                setMessage('');
+              }}
             >
               Sign up
             </button>
           </div>
 
-          <h2 id="auth-heading">{authMode === 'login' ? 'Welcome back' : 'Create account'}</h2>
+          <div className="auth-copy">
+            <h2 id="auth-heading">{authMode === 'login' ? 'Welcome back' : 'Create account'}</h2>
+            {authMode === 'login' ? <p>Sign in to view your planner and upcoming paydays.</p> : null}
+          </div>
 
           <form className="auth-form" onSubmit={handleSubmit}>
+            {authMode === 'register' && (
+              <div className="auth-name-grid">
+                <label>
+                  First Name
+                  <input
+                    autoComplete="given-name"
+                    name="firstName"
+                    onChange={handleChange}
+                    required
+                    type="text"
+                    value={formData.firstName}
+                  />
+                </label>
+
+                <label>
+                  Last Name
+                  <input
+                    autoComplete="family-name"
+                    name="lastName"
+                    onChange={handleChange}
+                    required
+                    type="text"
+                    value={formData.lastName}
+                  />
+                </label>
+              </div>
+            )}
+
             <label>
-              Username
+              Email
               <input
-                autoComplete="username"
-                name="username"
+                autoComplete="email"
+                name="email"
                 onChange={handleChange}
+                placeholder="you@example.com"
                 required
-                type="text"
-                value={formData.username}
+                type="email"
+                value={formData.email}
               />
             </label>
+
+            {authMode === 'register' && (
+              <label>
+                Date of Birth
+                <input
+                  autoComplete="bday"
+                  name="dateOfBirth"
+                  onChange={handleChange}
+                  required
+                  type="date"
+                  value={formData.dateOfBirth}
+                />
+              </label>
+            )}
 
             <label>
               Password
@@ -615,7 +750,7 @@ function App() {
       <header className="home-header">
         <div>
           <p className="eyebrow">BABY Finance</p>
-          <h1>Welcome, {user.username}</h1>
+          <h1>Welcome, {user.firstName || user.email || 'there'}</h1>
         </div>
         <button
           type="button"
@@ -941,10 +1076,16 @@ function App() {
                   <button
                     type="button"
                     className={`calendar-day ${calendarDay.isToday ? 'today' : ''} ${
-                      isSameDay(calendarDay.date, selectedDay) ? 'selected' : ''
+                      selectedDay && isSameDay(calendarDay.date, selectedDay) ? 'selected' : ''
                     }`}
                     key={calendarDay.date.toISOString()}
-                    onClick={() => setSelectedDay(calendarDay.date)}
+                    onClick={() =>
+                      setSelectedDay((currentSelectedDay) =>
+                        currentSelectedDay && isSameDay(calendarDay.date, currentSelectedDay)
+                          ? null
+                          : calendarDay.date,
+                      )
+                    }
                   >
                     <span>{calendarDay.date.getDate()}</span>
                     {calendarDay.paydays.slice(0, 2).map((payday) => (
@@ -965,14 +1106,20 @@ function App() {
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">Selected Day</p>
-                <h2 id="day-heading">{formatLongDate(selectedDay)}</h2>
+                <h2 id="day-heading">
+                  {selectedDay ? formatLongDate(selectedDay) : 'No Day Selected'}
+                </h2>
               </div>
             </div>
 
             <div className="day-detail-grid">
               <article className="day-detail-card">
                 <h3>Income</h3>
-                {selectedDayIncome.length === 0 ? (
+                {!selectedDay ? (
+                  <p className="empty-state">
+                    No day selected. Click a day in the calendar to inspect that day more closely.
+                  </p>
+                ) : selectedDayIncome.length === 0 ? (
                   <p className="empty-state">No income scheduled on this day yet.</p>
                 ) : (
                   selectedDayIncome.map((income) => (
@@ -986,7 +1133,11 @@ function App() {
 
               <article className="day-detail-card">
                 <h3>Potential Expenses</h3>
-                <p className="empty-state">Expense planning will show here once we wire that feature in.</p>
+                <p className="empty-state">
+                  {selectedDay
+                    ? 'Expense planning will show here once we wire that feature in.'
+                    : 'No day selected. Summary stays cleaner until you click into a date.'}
+                </p>
               </article>
             </div>
           </section>
@@ -998,7 +1149,9 @@ function App() {
         <article>
           <p className="eyebrow">Selected Day</p>
           <strong>{formatCurrency(selectedDayTotal)}</strong>
-          <span>Income on {formatLongDate(selectedDay)}</span>
+          <span>
+            {selectedDay ? `Income on ${formatLongDate(selectedDay)}` : 'No day selected'}
+          </span>
           <small>Expenses: $0.00</small>
         </article>
         <article>
@@ -1083,7 +1236,7 @@ function App() {
       <section className="budget-panel" aria-labelledby="budget-heading">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Budget Snapshot</p>
+            <p className="eyebrow">BABY Snapshot</p>
             <h2 id="budget-heading">Monthly Budget</h2>
           </div>
           <button type="button">Add Category</button>
