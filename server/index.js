@@ -31,6 +31,7 @@ function parseDateInput(dateValue) {
 function serializeUser(user) {
   return {
     createdAt: user.createdAt,
+    dateOfBirth: user.dateOfBirth,
     email: user.email,
     firstName: user.firstName,
     id: user.id,
@@ -50,6 +51,37 @@ function serializeIncomeSource(incomeSource) {
     hoursPerPeriod:
       incomeSource.hoursPerPeriod === null ? null : Number(incomeSource.hoursPerPeriod),
     name: incomeSource.jobName,
+  };
+}
+
+function serializeExpenseSource(expenseSource) {
+  return {
+    ...expenseSource,
+    amount: Number(expenseSource.amount),
+  };
+}
+
+function buildExpenseSourceData(payload, userId) {
+  const { amount, frequency, name, nextDueDate } = payload;
+  const sourceName = String(name || '').trim();
+  const expenseAmount = Number(amount);
+
+  if (!sourceName || !frequency || !nextDueDate) {
+    return { error: 'Expense name, frequency, and first due date are required.' };
+  }
+
+  if (Number.isNaN(expenseAmount) || expenseAmount <= 0) {
+    return { error: 'Expense amount must be greater than 0.' };
+  }
+
+  return {
+    data: {
+      amount: expenseAmount,
+      frequency,
+      name: sourceName,
+      nextDueDate: new Date(nextDueDate),
+      userId,
+    },
   };
 }
 
@@ -205,6 +237,24 @@ app.post('/api/auth/login', async (req, res) => {
   res.json(serializeUser(user));
 });
 
+app.get('/api/users/:userId', async (req, res) => {
+  const userId = Number(req.params.userId);
+
+  if (!Number.isInteger(userId)) {
+    return res.status(400).json({ message: 'A valid user id is required.' });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    return res.status(404).json({ message: 'User not found.' });
+  }
+
+  res.json(serializeUser(user));
+});
+
 app.get('/api/users/:userId/income-sources', async (req, res) => {
   const userId = Number(req.params.userId);
 
@@ -271,6 +321,74 @@ app.put('/api/users/:userId/income-sources/:incomeSourceId', async (req, res) =>
   });
 
   res.json(serializeIncomeSource(updatedIncomeSource));
+});
+
+app.get('/api/users/:userId/expense-sources', async (req, res) => {
+  const userId = Number(req.params.userId);
+
+  if (!Number.isInteger(userId)) {
+    return res.status(400).json({ message: 'A valid user id is required.' });
+  }
+
+  const expenseSources = await prisma.expenseSource.findMany({
+    where: { userId },
+    orderBy: { nextDueDate: 'asc' },
+  });
+
+  res.json(expenseSources.map(serializeExpenseSource));
+});
+
+app.post('/api/users/:userId/expense-sources', async (req, res) => {
+  const userId = Number(req.params.userId);
+
+  if (!Number.isInteger(userId)) {
+    return res.status(400).json({ message: 'A valid user id is required.' });
+  }
+
+  const payload = buildExpenseSourceData(req.body, userId);
+
+  if (payload.error) {
+    return res.status(400).json({ message: payload.error });
+  }
+
+  const expenseSource = await prisma.expenseSource.create({
+    data: payload.data,
+  });
+
+  res.status(201).json(serializeExpenseSource(expenseSource));
+});
+
+app.put('/api/users/:userId/expense-sources/:expenseSourceId', async (req, res) => {
+  const userId = Number(req.params.userId);
+  const expenseSourceId = Number(req.params.expenseSourceId);
+
+  if (!Number.isInteger(userId) || !Number.isInteger(expenseSourceId)) {
+    return res.status(400).json({ message: 'Valid ids are required.' });
+  }
+
+  const existingExpenseSource = await prisma.expenseSource.findFirst({
+    where: {
+      id: expenseSourceId,
+      userId,
+    },
+  });
+
+  if (!existingExpenseSource) {
+    return res.status(404).json({ message: 'Expense source not found.' });
+  }
+
+  const payload = buildExpenseSourceData(req.body, userId);
+
+  if (payload.error) {
+    return res.status(400).json({ message: payload.error });
+  }
+
+  const updatedExpenseSource = await prisma.expenseSource.update({
+    data: payload.data,
+    where: { id: expenseSourceId },
+  });
+
+  res.json(serializeExpenseSource(updatedExpenseSource));
 });
 
 app.get('/api/budgets', (req, res) => {

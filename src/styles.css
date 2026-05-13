@@ -87,10 +87,16 @@ button:disabled {
   gap: 0.65rem;
 }
 
+.brand-mark-row {
+  align-items: center;
+  display: flex;
+  gap: 0.85rem;
+}
+
 .auth-intro {
   color: #ffffff;
   font-size: 1.15rem;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.5;
   margin: 0;
 }
@@ -174,6 +180,7 @@ button:disabled {
 .auth-copy {
   display: grid;
   gap: 0.4rem;
+  margin-bottom: 0.35rem;
 }
 
 .auth-copy p {
@@ -185,6 +192,14 @@ button:disabled {
   color: rgb(239 247 244 / 0.82);
   font-size: 0.92rem;
   line-height: 1.55;
+}
+
+.brand-note-small {
+  align-self: end;
+  color: rgb(226 241 236 / 0.72);
+  font-size: 0.69rem;
+  margin: 0;
+  text-align: left;
 }
 
 .auth-name-grid {
@@ -260,12 +275,6 @@ button:disabled {
   gap: 0.35rem;
 }
 
-.home-title-row {
-  align-items: center;
-  display: flex;
-  gap: 0.85rem;
-}
-
 .money-badge {
   align-items: center;
   background: linear-gradient(180deg, #1a8f77 0%, #136f63 100%);
@@ -280,9 +289,9 @@ button:disabled {
   width: 2.5rem;
 }
 
-.home-subtitle {
-  color: var(--muted);
-  margin: 0;
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
 }
 
 .secondary-button {
@@ -372,6 +381,46 @@ button:disabled {
 .summary-layout {
   display: grid;
   gap: 1rem;
+}
+
+.profile-layout {
+  display: grid;
+}
+
+.profile-panel {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 1rem;
+}
+
+.profile-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profile-card {
+  background: #fbfcfb;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.4rem;
+  padding: 1rem;
+}
+
+.profile-card span {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.profile-card strong {
+  font-size: 1.05rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .chart-grid {
@@ -635,6 +684,15 @@ button:disabled {
   margin: 0.2rem 0 0;
 }
 
+.expense-item strong,
+.expense-detail-item strong {
+  color: #b91c1c;
+}
+
+.income-amount {
+  color: var(--accent);
+}
+
 .income-item-actions {
   align-items: flex-end;
   display: grid;
@@ -722,6 +780,61 @@ button:disabled {
   padding: 0.25rem 0.35rem;
 }
 
+.calendar-day .expense-pill {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.calendar-day .overflow-pill {
+  background: #eef2f7;
+  color: #475569;
+}
+
+.chart-period-totals {
+  border-top: 1px solid #e5ece7;
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.chart-period-totals span {
+  background: #f8faf9;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--muted);
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.75rem;
+}
+
+.chart-period-totals small {
+  color: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.chart-period-totals strong {
+  color: inherit;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.income-period-totals span {
+  background: #f3faf7;
+  border-color: #b7e1d4;
+  color: var(--accent);
+}
+
+.expense-period-totals span {
+  background: #fff7f7;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
 .day-detail-grid {
   display: grid;
   gap: 1rem;
@@ -761,6 +874,8 @@ progress {
 
   .chart-grid,
   .chart-body,
+  .chart-period-totals,
+  .profile-grid,
   .workspace-grid,
   .day-detail-grid {
     grid-template-columns: 1fr;
@@ -785,8 +900,13 @@ progress {
     grid-template-columns: 1fr;
   }
 
-  .home-title-row {
+  .brand-mark-row {
     align-items: flex-start;
+  }
+
+
+  .header-actions {
+    flex-direction: column;
   }
 
   .panel-heading:not(.calendar-header) {

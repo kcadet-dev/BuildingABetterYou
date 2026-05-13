@@ -27,6 +27,7 @@ model User {
   username         String           @unique
   passwordHash     String
   budgetCategories BudgetCategory[]
+  expenseSources   ExpenseSource[]
   incomeSources    IncomeSource[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -48,4 +49,16 @@ model IncomeSource {
   user             User     @relation(fields: [userId], references: [id])
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+model ExpenseSource {
+  id          Int      @id @default(autoincrement())
+  name        String
+  amount      Decimal
+  frequency   String
+  nextDueDate DateTime
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
