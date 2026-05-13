@@ -32,6 +32,7 @@ model IncomeSource {
   id               Int      @id @default(autoincrement())
   jobName          String
   amount           Decimal
+  grossAmount      Decimal?
   frequency        String
   nextPayDate      DateTime
   isCash           Boolean  @default(false)

@@ -17,10 +17,10 @@ function serializeIncomeSource(incomeSource) {
     compensationType: incomeSource.compensationType,
     estimatedTaxRate:
       incomeSource.estimatedTaxRate === null ? null : Number(incomeSource.estimatedTaxRate),
+    grossAmount: incomeSource.grossAmount === null ? null : Number(incomeSource.grossAmount),
     hourlyRate: incomeSource.hourlyRate === null ? null : Number(incomeSource.hourlyRate),
     hoursPerPeriod:
       incomeSource.hoursPerPeriod === null ? null : Number(incomeSource.hoursPerPeriod),
-    isCash: Boolean(incomeSource.isCash),
     name: incomeSource.jobName,
   };
 }
@@ -31,15 +31,17 @@ function buildIncomeSourceData(payload, userId) {
     compensationType,
     estimatedTaxRate,
     frequency,
+    grossAmount,
     hourlyRate,
     hoursPerPeriod,
-    isCash,
     jobName,
     name,
     nextPayDate,
   } = payload;
   const sourceName = String(name || jobName || '').trim();
   const incomeAmount = Number(amount);
+  const parsedGrossAmount =
+    grossAmount === '' || grossAmount === null || grossAmount === undefined ? null : Number(grossAmount);
   const parsedTaxRate =
     estimatedTaxRate === '' || estimatedTaxRate === null || estimatedTaxRate === undefined
       ? null
@@ -50,8 +52,8 @@ function buildIncomeSourceData(payload, userId) {
     hoursPerPeriod === '' || hoursPerPeriod === null || hoursPerPeriod === undefined
       ? null
       : Number(hoursPerPeriod);
-  const cashPaid = Boolean(isCash);
-  const normalizedCompensationType = cashPaid ? null : compensationType;
+  const normalizedCompensationType =
+    compensationType === 'hourly' || compensationType === 'salaried' ? compensationType : null;
 
   if (!sourceName || !frequency || !nextPayDate) {
     return { error: 'Income source name, frequency, and first income date are required.' };
@@ -61,14 +63,17 @@ function buildIncomeSourceData(payload, userId) {
     return { error: 'Income amount must be greater than 0.' };
   }
 
-  if (!cashPaid && !normalizedCompensationType) {
-    return { error: 'Choose whether the income source is hourly or salaried.' };
+  if (
+    normalizedCompensationType === 'salaried' &&
+    (parsedGrossAmount === null || Number.isNaN(parsedGrossAmount) || parsedGrossAmount <= 0)
+  ) {
+    return { error: 'Gross salaried pay must be greater than 0.' };
   }
 
   if (
     normalizedCompensationType === 'hourly' &&
-    ((parsedHourlyRate !== null && parsedHourlyRate <= 0) ||
-      (parsedHoursPerPeriod !== null && parsedHoursPerPeriod <= 0))
+    ((parsedHourlyRate === null || parsedHourlyRate <= 0) ||
+      (parsedHoursPerPeriod === null || parsedHoursPerPeriod <= 0))
   ) {
     return { error: 'Hourly rate and hours per pay period must be greater than 0.' };
   }
@@ -83,9 +88,15 @@ function buildIncomeSourceData(payload, userId) {
       compensationType: normalizedCompensationType,
       estimatedTaxRate: parsedTaxRate,
       frequency,
-      hourlyRate: parsedHourlyRate,
-      hoursPerPeriod: parsedHoursPerPeriod,
-      isCash: cashPaid,
+      grossAmount:
+        normalizedCompensationType === null
+          ? null
+          : normalizedCompensationType === 'salaried'
+            ? parsedGrossAmount
+            : parsedHourlyRate * parsedHoursPerPeriod,
+      hourlyRate: normalizedCompensationType === 'hourly' ? parsedHourlyRate : null,
+      hoursPerPeriod: normalizedCompensationType === 'hourly' ? parsedHoursPerPeriod : null,
+      isCash: false,
       jobName: sourceName,
       nextPayDate: new Date(nextPayDate),
       userId,
@@ -94,7 +105,7 @@ function buildIncomeSourceData(payload, userId) {
 }
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', app: 'Baby Finance' });
+  res.json({ status: 'ok', app: 'BABY Finance' });
 });
 
 app.post('/api/auth/register', async (req, res) => {
@@ -148,6 +159,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   res.json({
+    createdAt: user.createdAt,
     id: user.id,
     username: user.username,
     message: 'Login successful. Sessions can be added in a future commit.',
@@ -246,5 +258,5 @@ app.delete('/api/budgets/:id', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Baby Finance API running on http://localhost:${port}`);
+  console.log(`BABY Finance API running on http://localhost:${port}`);
 });
