@@ -14,6 +14,10 @@ const starterBudgets = [
   { id: 1, name: 'Groceries', limit: 300, spent: 120 },
   { id: 2, name: 'Savings', limit: 200, spent: 75 },
 ];
+const starterGoals = [
+  { id: 1, name: 'Emergency Cushion', targetAmount: 500, targetDate: '2026-08-01' },
+  { id: 2, name: 'Textbooks', targetAmount: 250, targetDate: '2026-06-15' },
+];
 const chartColors = ['#64748b', '#94a3b8', '#cbd5e1', '#7c8da5', '#a8b3c5', '#d5dce7'];
 const expenseChartColors = ['#8b9aaa', '#b4bfca', '#d6dde5', '#718096', '#a1adba', '#e2e8f0'];
 const authStorageKey = 'baby-finance-auth-session';
@@ -149,6 +153,15 @@ function createDefaultExpenseForm(today, overrides = {}) {
     frequency: 'monthly',
     name: '',
     nextDueDate: formatDateInput(today),
+    ...overrides,
+  };
+}
+
+function createDefaultGoalForm(today, overrides = {}) {
+  return {
+    name: '',
+    targetAmount: '',
+    targetDate: formatDateInput(addMonths(today, 1)),
     ...overrides,
   };
 }
@@ -371,6 +384,37 @@ function buildPieGradient(items, emptyColor = '#e5ece7') {
   return `conic-gradient(${stops.join(', ')})`;
 }
 
+function buildNetSnapshotItems(incomeTotal, expenseTotal) {
+  const items = [
+    {
+      amount: Math.max(incomeTotal, 0),
+      color: '#94a3b8',
+      name: 'Income',
+    },
+    {
+      amount: Math.max(expenseTotal, 0),
+      color: '#d6dde5',
+      name: 'Expenses',
+    },
+  ];
+  const total = items.reduce((sum, item) => sum + item.amount, 0);
+
+  return items.map((item) => ({
+    ...item,
+    share: total === 0 ? 0 : item.amount / total,
+  }));
+}
+
+function estimateGoalDate(goalAmount, monthlyNet, today) {
+  const dailyNet = monthlyNet / 30;
+
+  if (dailyNet <= 0) {
+    return null;
+  }
+
+  return addDays(today, Math.ceil(goalAmount / dailyNet));
+}
+
 function App() {
   const today = useMemo(() => new Date(), []);
   const currentMonthStart = useMemo(() => new Date(today.getFullYear(), today.getMonth(), 1), [today]);
@@ -381,6 +425,8 @@ function App() {
 
   const [authMode, setAuthMode] = useState('login');
   const [formData, setFormData] = useState(emptyAuthForm);
+  const [budgetGoalForm, setBudgetGoalForm] = useState(createDefaultGoalForm(today));
+  const [budgetGoals, setBudgetGoals] = useState(starterGoals);
   const [expenseForm, setExpenseForm] = useState(createDefaultExpenseForm(today));
   const [expenseSources, setExpenseSources] = useState([]);
   const [incomeForm, setIncomeForm] = useState(createDefaultIncomeForm(today));
@@ -558,6 +604,14 @@ function App() {
     () => buildPieGradient(selectedMonthExpenseBreakdown, '#edf2f7'),
     [selectedMonthExpenseBreakdown],
   );
+  const netSnapshotItems = useMemo(
+    () => buildNetSnapshotItems(displayedMonthTotal, displayedMonthExpenseTotal),
+    [displayedMonthExpenseTotal, displayedMonthTotal],
+  );
+  const netSnapshotPie = useMemo(
+    () => buildPieGradient(netSnapshotItems, '#edf2f7'),
+    [netSnapshotItems],
+  );
 
   const isEstimateVisible = incomeForm.useTaxEstimate;
   const estimatedGrossPay = !incomeForm.useTaxEstimate
@@ -670,6 +724,32 @@ function App() {
       ...currentFormData,
       [event.target.name]: event.target.value,
     }));
+  };
+
+  const handleBudgetGoalChange = (event) => {
+    setBudgetGoalForm((currentGoalForm) => ({
+      ...currentGoalForm,
+      [event.target.name]: event.target.value,
+    }));
+  };
+
+  const handleBudgetGoalSubmit = (event) => {
+    event.preventDefault();
+
+    if (!budgetGoalForm.name.trim() || Number(budgetGoalForm.targetAmount) <= 0) {
+      return;
+    }
+
+    setBudgetGoals((currentGoals) => [
+      ...currentGoals,
+      {
+        id: Date.now(),
+        name: budgetGoalForm.name.trim(),
+        targetAmount: Number(budgetGoalForm.targetAmount),
+        targetDate: budgetGoalForm.targetDate,
+      },
+    ]);
+    setBudgetGoalForm(createDefaultGoalForm(today));
   };
 
   const handleIncomeChange = (event) => {
@@ -1892,26 +1972,126 @@ function App() {
         <div className="panel-heading">
           <div>
             <p className="eyebrow">B.A.B.Y. Snapshot</p>
-            <h2 id="budget-heading">Monthly Budget</h2>
+            <h2 id="budget-heading">Budget Outlook</h2>
           </div>
-          <button type="button">Add Category</button>
         </div>
 
-        <div className="budget-list">
-          {starterBudgets.map((budget) => (
-            <article className="budget-card" key={budget.id}>
-              <div>
-                <h3>{budget.name}</h3>
-                <p>
-                  ${budget.spent} spent of ${budget.limit}
-                </p>
+        <section className="snapshot-grid" aria-label="Budget snapshot">
+          <article className="snapshot-chart-card">
+            <div className="pie-chart snapshot-pie" style={{ background: netSnapshotPie }}>
+              <div className="pie-chart-center">
+                <span>Net</span>
+                <strong>{formatCurrency(displayedMonthTotal - displayedMonthExpenseTotal)}</strong>
               </div>
-              <progress value={budget.spent} max={budget.limit}>
-                {Math.round((budget.spent / budget.limit) * 100)}%
-              </progress>
-            </article>
-          ))}
-        </div>
+            </div>
+
+            <div className="snapshot-lines">
+              <div>
+                <span>Income</span>
+                <strong className="income-amount">{formatSignedCurrency(displayedMonthTotal)}</strong>
+              </div>
+              <div>
+                <span>Expenses</span>
+                <strong className="expense-amount">{formatExpenseCurrency(displayedMonthExpenseTotal)}</strong>
+              </div>
+              <div>
+                <span>Net Available</span>
+                <strong>{formatCurrency(displayedMonthTotal - displayedMonthExpenseTotal)}</strong>
+              </div>
+            </div>
+          </article>
+
+          <article className="snapshot-card">
+            <h3>Starter Categories</h3>
+            <div className="budget-list">
+              {starterBudgets.map((budget) => (
+                <article className="budget-card" key={budget.id}>
+                  <div>
+                    <h3>{budget.name}</h3>
+                    <p>
+                      ${budget.spent} planned of ${budget.limit}
+                    </p>
+                  </div>
+                  <progress value={budget.spent} max={budget.limit}>
+                    {Math.round((budget.spent / budget.limit) * 100)}%
+                  </progress>
+                </article>
+              ))}
+            </div>
+          </article>
+        </section>
+
+        <section className="goals-panel" aria-labelledby="goals-heading">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Goals</p>
+              <h2 id="goals-heading">Possible Goals</h2>
+            </div>
+          </div>
+
+          <form className="goal-form" onSubmit={handleBudgetGoalSubmit}>
+            <label>
+              Goal name
+              <input
+                name="name"
+                onChange={handleBudgetGoalChange}
+                placeholder="ex. Emergency fund"
+                required
+                type="text"
+                value={budgetGoalForm.name}
+              />
+            </label>
+
+            <label>
+              Target amount
+              <input
+                min="1"
+                name="targetAmount"
+                onChange={handleBudgetGoalChange}
+                placeholder="500"
+                required
+                step="0.01"
+                type="number"
+                value={budgetGoalForm.targetAmount}
+              />
+            </label>
+
+            <label>
+              Needed by
+              <input
+                min={formatDateInput(today)}
+                name="targetDate"
+                onChange={handleBudgetGoalChange}
+                required
+                type="date"
+                value={budgetGoalForm.targetDate}
+              />
+            </label>
+
+            <button type="submit">Add Goal</button>
+          </form>
+
+          <div className="goal-list">
+            {budgetGoals.map((goal) => {
+              const estimatedDate = estimateGoalDate(goal.targetAmount, currentMonthNetTotal, today);
+              const targetDate = parseLocalDate(goal.targetDate);
+              const canMeetGoal = estimatedDate && estimatedDate <= targetDate;
+
+              return (
+                <article className="goal-card" key={goal.id}>
+                  <div>
+                    <h3>{goal.name}</h3>
+                    <p>{formatCurrency(goal.targetAmount)} needed by {formatLongDate(targetDate)}</p>
+                  </div>
+                  <div className={canMeetGoal ? 'goal-status is-on-track' : 'goal-status'}>
+                    <span>{estimatedDate ? 'Could be met by' : 'Needs more net income'}</span>
+                    <strong>{estimatedDate ? formatLongDate(estimatedDate) : 'Not projected yet'}</strong>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
       </section>
       </section>
       </>
