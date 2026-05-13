@@ -15,11 +15,25 @@ const starterBudgets = [
   { id: 2, name: 'Savings', limit: 200, spent: 75 },
 ];
 const starterGoals = [
-  { id: 1, name: 'Emergency Cushion', targetAmount: 500, targetDate: '2026-08-01' },
-  { id: 2, name: 'Textbooks', targetAmount: 250, targetDate: '2026-06-15' },
+  { currentAmount: 75, id: 1, name: 'Emergency Cushion', targetAmount: 500, targetDate: '2026-08-01' },
+  { currentAmount: 25, id: 2, name: 'Textbooks', targetAmount: 250, targetDate: '2026-06-15' },
 ];
 const chartColors = ['#64748b', '#94a3b8', '#cbd5e1', '#7c8da5', '#a8b3c5', '#d5dce7'];
 const expenseChartColors = ['#8b9aaa', '#b4bfca', '#d6dde5', '#718096', '#a1adba', '#e2e8f0'];
+const expenseCategoryOptions = [
+  { label: 'Housing', type: 'essential', value: 'Housing' },
+  { label: 'Utilities', type: 'essential', value: 'Utilities' },
+  { label: 'Groceries', type: 'essential', value: 'Groceries' },
+  { label: 'Transportation', type: 'essential', value: 'Transportation' },
+  { label: 'Health', type: 'essential', value: 'Health' },
+  { label: 'Debt Repayment', type: 'essential', value: 'Debt Repayment' },
+  { label: 'Dining & Drinks', type: 'discretionary', value: 'Dining & Drinks' },
+  { label: 'Entertainment', type: 'discretionary', value: 'Entertainment' },
+  { label: 'Shopping', type: 'discretionary', value: 'Shopping' },
+  { label: 'Personal Care', type: 'discretionary', value: 'Personal Care' },
+  { label: 'Travel', type: 'discretionary', value: 'Travel' },
+  { label: 'Custom Category', type: 'essential', value: 'custom' },
+];
 const authStorageKey = 'baby-finance-auth-session';
 const emptyAuthForm = {
   dateOfBirth: '',
@@ -150,15 +164,19 @@ function createDefaultIncomeForm(today, overrides = {}) {
 function createDefaultExpenseForm(today, overrides = {}) {
   return {
     amount: '',
+    category: 'Housing',
+    customCategory: '',
     frequency: 'monthly',
     name: '',
     nextDueDate: formatDateInput(today),
+    spendingType: 'essential',
     ...overrides,
   };
 }
 
 function createDefaultGoalForm(today, overrides = {}) {
   return {
+    currentAmount: '',
     name: '',
     targetAmount: '',
     targetDate: formatDateInput(addMonths(today, 1)),
@@ -197,6 +215,8 @@ function normalizeExpenseSource(expenseSource) {
   return {
     ...expenseSource,
     amount: Number(expenseSource.amount),
+    category: expenseSource.category || 'Other',
+    spendingType: expenseSource.spendingType || 'essential',
   };
 }
 
@@ -238,10 +258,12 @@ function getOccurrencesForExpenseSource(expenseSource, startDate, endDate) {
     if (occurrenceDate >= startDate) {
       occurrences.push({
         amount: Number(expenseSource.amount),
+        category: expenseSource.category || 'Other',
         date: new Date(occurrenceDate),
         expenseSourceId: expenseSource.id,
         frequency: expenseSource.frequency,
         name: expenseSource.name,
+        spendingType: expenseSource.spendingType || 'essential',
       });
     }
 
@@ -258,7 +280,26 @@ function getOccurrencesForExpenseSource(expenseSource, startDate, endDate) {
   return occurrences;
 }
 
-function buildCalendarDays(monthStart, paydays, expenses, today) {
+function getGoalCalendarItems(goals, monthStart, monthEnd, monthlyNet, today) {
+  return goals
+    .map((goal) => {
+      const targetDate = parseLocalDate(goal.targetDate);
+      const remainingAmount = Math.max(Number(goal.targetAmount) - Number(goal.currentAmount || 0), 0);
+      const estimatedDate = estimateGoalDate(remainingAmount, monthlyNet, today);
+
+      return {
+        ...goal,
+        currentAmount: Number(goal.currentAmount || 0),
+        date: targetDate,
+        estimatedDate,
+        remainingAmount,
+        targetAmount: Number(goal.targetAmount),
+      };
+    })
+    .filter((goal) => isDateInRange(goal.date, monthStart, monthEnd));
+}
+
+function buildCalendarDays(monthStart, paydays, expenses, goals, today) {
   const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
   const days = [];
 
@@ -271,6 +312,7 @@ function buildCalendarDays(monthStart, paydays, expenses, today) {
     days.push({
       date,
       expenses: expenses.filter((expense) => isSameDay(expense.date, date)),
+      goals: goals.filter((goal) => isSameDay(goal.date, date)),
       isToday: isSameDay(date, today),
       paydays: paydays.filter((payday) => isSameDay(payday.date, date)),
     });
@@ -282,6 +324,7 @@ function buildCalendarDays(monthStart, paydays, expenses, today) {
 function getCalendarPreviewItems(calendarDay) {
   const hasIncome = calendarDay.paydays.length > 0;
   const hasExpenses = calendarDay.expenses.length > 0;
+  const hasGoals = calendarDay.goals.length > 0;
 
   if (hasIncome && hasExpenses) {
     return [
@@ -291,15 +334,26 @@ function getCalendarPreviewItems(calendarDay) {
   }
 
   if (hasIncome) {
-    return calendarDay.paydays.slice(0, 2).map((payday) => ({
-      item: payday,
-      type: 'income',
-    }));
+    return [
+      { item: calendarDay.paydays[0], type: 'income' },
+      ...(hasGoals
+        ? [{ item: calendarDay.goals[0], type: 'goal' }]
+        : calendarDay.paydays.slice(1, 2).map((payday) => ({ item: payday, type: 'income' }))),
+    ];
   }
 
-  return calendarDay.expenses.slice(0, 2).map((expense) => ({
-    item: expense,
-    type: 'expense',
+  if (hasExpenses) {
+    return [
+      { item: calendarDay.expenses[0], type: 'expense' },
+      ...(hasGoals
+        ? [{ item: calendarDay.goals[0], type: 'goal' }]
+        : calendarDay.expenses.slice(1, 2).map((expense) => ({ item: expense, type: 'expense' }))),
+    ];
+  }
+
+  return calendarDay.goals.slice(0, 2).map((goal) => ({
+    item: goal,
+    type: 'goal',
   }));
 }
 
@@ -367,6 +421,25 @@ function buildBreakdown(occurrences, colors = chartColors) {
     }));
 }
 
+function buildExpenseBreakdown(expenses) {
+  const totals = new Map();
+  let grandTotal = 0;
+
+  expenses.forEach((expense) => {
+    grandTotal += expense.amount;
+    totals.set(expense.category, (totals.get(expense.category) || 0) + expense.amount);
+  });
+
+  return Array.from(totals.entries())
+    .sort((firstItem, secondItem) => secondItem[1] - firstItem[1])
+    .map(([name, amount], index) => ({
+      amount,
+      color: expenseChartColors[index % expenseChartColors.length],
+      name,
+      share: grandTotal === 0 ? 0 : amount / grandTotal,
+    }));
+}
+
 function buildPieGradient(items, emptyColor = '#e5ece7') {
   if (items.length === 0) {
     return `conic-gradient(${emptyColor} 0deg 360deg)`;
@@ -405,7 +478,32 @@ function buildNetSnapshotItems(incomeTotal, expenseTotal) {
   }));
 }
 
+function buildSpendingTypeSnapshotItems(essentialTotal, discretionaryTotal) {
+  const items = [
+    {
+      amount: Math.max(essentialTotal, 0),
+      color: '#94a3b8',
+      name: 'Essential',
+    },
+    {
+      amount: Math.max(discretionaryTotal, 0),
+      color: '#facc15',
+      name: 'Discretionary',
+    },
+  ];
+  const total = items.reduce((sum, item) => sum + item.amount, 0);
+
+  return items.map((item) => ({
+    ...item,
+    share: total === 0 ? 0 : item.amount / total,
+  }));
+}
+
 function estimateGoalDate(goalAmount, monthlyNet, today) {
+  if (goalAmount <= 0) {
+    return today;
+  }
+
   const dailyNet = monthlyNet / 30;
 
   if (dailyNet <= 0) {
@@ -460,6 +558,10 @@ function App() {
     [selectedMonth],
   );
   const displayedMonthLabel = selectedMonth.toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
+  const currentMonthLabel = today.toLocaleDateString('en-US', {
     month: 'long',
     year: 'numeric',
   });
@@ -532,9 +634,38 @@ function App() {
       selectedDay ? displayedMonthExpenses.filter((expense) => isSameDay(expense.date, selectedDay)) : [],
     [displayedMonthExpenses, selectedDay],
   );
+  const workWeekTotal = workWeekIncome.reduce((total, income) => total + income.amount, 0);
+  const workWeekExpenseTotal = workWeekExpenses.reduce((total, expense) => total + expense.amount, 0);
+  const selectedDayTotal = selectedDayIncome.reduce((total, income) => total + income.amount, 0);
+  const selectedDayExpenseTotal = selectedDayExpenses.reduce((total, expense) => total + expense.amount, 0);
+  const currentMonthTotal = currentMonthIncome.reduce((total, income) => total + income.amount, 0);
+  const currentMonthExpenseTotal = currentMonthExpenses.reduce((total, expense) => total + expense.amount, 0);
+  const yearTotal = yearIncome.reduce((total, income) => total + income.amount, 0);
+  const yearExpenseTotal = yearExpenses.reduce((total, expense) => total + expense.amount, 0);
+  const displayedMonthTotal = displayedMonthIncome.reduce((total, income) => total + income.amount, 0);
+  const displayedMonthExpenseTotal = displayedMonthExpenses.reduce((total, expense) => total + expense.amount, 0);
+  const selectedDayNetTotal = selectedDayTotal - selectedDayExpenseTotal;
+  const workWeekNetTotal = workWeekTotal - workWeekExpenseTotal;
+  const currentMonthNetTotal = currentMonthTotal - currentMonthExpenseTotal;
+  const yearNetTotal = yearTotal - yearExpenseTotal;
+  const displayedMonthNetTotal = displayedMonthTotal - displayedMonthExpenseTotal;
+  const displayedMonthEssentialExpenseTotal = displayedMonthExpenses
+    .filter((expense) => expense.spendingType === 'essential')
+    .reduce((total, expense) => total + expense.amount, 0);
+  const displayedMonthDiscretionaryExpenseTotal = displayedMonthExpenses
+    .filter((expense) => expense.spendingType === 'discretionary')
+    .reduce((total, expense) => total + expense.amount, 0);
+  const displayedMonthGoals = useMemo(
+    () => getGoalCalendarItems(budgetGoals, selectedMonth, displayedMonthEnd, displayedMonthNetTotal, today),
+    [budgetGoals, displayedMonthEnd, displayedMonthNetTotal, selectedMonth, today],
+  );
+  const selectedDayGoals = useMemo(
+    () => selectedDay ? displayedMonthGoals.filter((goal) => isSameDay(goal.date, selectedDay)) : [],
+    [displayedMonthGoals, selectedDay],
+  );
   const calendarDays = useMemo(
-    () => buildCalendarDays(selectedMonth, displayedMonthIncome, displayedMonthExpenses, today),
-    [displayedMonthExpenses, displayedMonthIncome, selectedMonth, today],
+    () => buildCalendarDays(selectedMonth, displayedMonthIncome, displayedMonthExpenses, displayedMonthGoals, today),
+    [displayedMonthExpenses, displayedMonthGoals, displayedMonthIncome, selectedMonth, today],
   );
   const calendarWeeks = useMemo(() => buildCalendarWeeks(calendarDays), [calendarDays]);
   const selectedWeekIncome = useMemo(
@@ -555,6 +686,15 @@ function App() {
         : [],
     [displayedMonthExpenses, selectedWeekRange],
   );
+  const selectedWeekGoals = useMemo(
+    () =>
+      selectedWeekRange
+        ? displayedMonthGoals.filter((goal) =>
+            isDateInRange(goal.date, selectedWeekRange.start, selectedWeekRange.end),
+          )
+        : [],
+    [displayedMonthGoals, selectedWeekRange],
+  );
   const detailIncome = selectedMonthRange
     ? displayedMonthIncome
     : selectedWeekRange
@@ -565,6 +705,11 @@ function App() {
     : selectedWeekRange
       ? selectedWeekExpenses
       : selectedDayExpenses;
+  const detailGoals = selectedMonthRange
+    ? displayedMonthGoals
+    : selectedWeekRange
+      ? selectedWeekGoals
+      : selectedDayGoals;
   const detailSelectionLabel = selectedMonthRange
     ? displayedMonthLabel
     : selectedWeekRange
@@ -573,27 +718,12 @@ function App() {
       ? formatLongDate(selectedDay)
       : 'No Day Selected';
   const hasDetailSelection = Boolean(selectedDay || selectedWeekRange || selectedMonthRange);
-
-  const workWeekTotal = workWeekIncome.reduce((total, income) => total + income.amount, 0);
-  const workWeekExpenseTotal = workWeekExpenses.reduce((total, expense) => total + expense.amount, 0);
-  const selectedDayTotal = selectedDayIncome.reduce((total, income) => total + income.amount, 0);
-  const selectedDayExpenseTotal = selectedDayExpenses.reduce((total, expense) => total + expense.amount, 0);
-  const currentMonthTotal = currentMonthIncome.reduce((total, income) => total + income.amount, 0);
-  const currentMonthExpenseTotal = currentMonthExpenses.reduce((total, expense) => total + expense.amount, 0);
-  const yearTotal = yearIncome.reduce((total, income) => total + income.amount, 0);
-  const yearExpenseTotal = yearExpenses.reduce((total, expense) => total + expense.amount, 0);
-  const displayedMonthTotal = displayedMonthIncome.reduce((total, income) => total + income.amount, 0);
-  const displayedMonthExpenseTotal = displayedMonthExpenses.reduce((total, expense) => total + expense.amount, 0);
-  const selectedDayNetTotal = selectedDayTotal - selectedDayExpenseTotal;
-  const workWeekNetTotal = workWeekTotal - workWeekExpenseTotal;
-  const currentMonthNetTotal = currentMonthTotal - currentMonthExpenseTotal;
-  const yearNetTotal = yearTotal - yearExpenseTotal;
   const selectedMonthBreakdown = useMemo(
     () => buildBreakdown(displayedMonthIncome),
     [displayedMonthIncome],
   );
   const selectedMonthExpenseBreakdown = useMemo(
-    () => buildBreakdown(displayedMonthExpenses, expenseChartColors),
+    () => buildExpenseBreakdown(displayedMonthExpenses),
     [displayedMonthExpenses],
   );
   const selectedMonthPie = useMemo(
@@ -611,6 +741,18 @@ function App() {
   const netSnapshotPie = useMemo(
     () => buildPieGradient(netSnapshotItems, '#edf2f7'),
     [netSnapshotItems],
+  );
+  const spendingTypeSnapshotItems = useMemo(
+    () =>
+      buildSpendingTypeSnapshotItems(
+        displayedMonthEssentialExpenseTotal,
+        displayedMonthDiscretionaryExpenseTotal,
+      ),
+    [displayedMonthDiscretionaryExpenseTotal, displayedMonthEssentialExpenseTotal],
+  );
+  const spendingTypeSnapshotPie = useMemo(
+    () => buildPieGradient(spendingTypeSnapshotItems, '#edf2f7'),
+    [spendingTypeSnapshotItems],
   );
 
   const isEstimateVisible = incomeForm.useTaxEstimate;
@@ -743,6 +885,7 @@ function App() {
     setBudgetGoals((currentGoals) => [
       ...currentGoals,
       {
+        currentAmount: Number(budgetGoalForm.currentAmount || 0),
         id: Date.now(),
         name: budgetGoalForm.name.trim(),
         targetAmount: Number(budgetGoalForm.targetAmount),
@@ -785,10 +928,23 @@ function App() {
   };
 
   const handleExpenseChange = (event) => {
-    setExpenseForm((currentExpenseForm) => ({
-      ...currentExpenseForm,
-      [event.target.name]: event.target.value,
-    }));
+    setExpenseForm((currentExpenseForm) => {
+      const nextExpenseForm = {
+        ...currentExpenseForm,
+        [event.target.name]: event.target.value,
+      };
+
+      if (event.target.name === 'category') {
+        const selectedCategory = expenseCategoryOptions.find((option) => option.value === event.target.value);
+
+        if (selectedCategory && selectedCategory.value !== 'custom') {
+          nextExpenseForm.customCategory = '';
+          nextExpenseForm.spendingType = selectedCategory.type;
+        }
+      }
+
+      return nextExpenseForm;
+    });
   };
 
   const handleEstimateToggle = () => {
@@ -952,11 +1108,22 @@ function App() {
     setIsSavingExpense(true);
     setExpenseMessage('');
 
+    if (expenseForm.category === 'custom' && !expenseForm.customCategory.trim()) {
+      setExpenseMessage('Name your custom expense category.');
+      setIsSavingExpense(false);
+      return;
+    }
+
     const payload = {
       amount: expenseForm.amount,
+      category:
+        expenseForm.category === 'custom'
+          ? expenseForm.customCategory.trim()
+          : expenseForm.category,
       frequency: expenseForm.frequency,
       name: expenseForm.name,
       nextDueDate: expenseForm.nextDueDate,
+      spendingType: expenseForm.spendingType,
     };
     const method = editingExpenseSourceId ? 'PUT' : 'POST';
     const route = editingExpenseSourceId
@@ -1016,16 +1183,85 @@ function App() {
     );
   };
 
+  const handleDeleteIncomeSource = async (incomeSource) => {
+    const shouldDelete = globalThis.confirm(`Delete ${incomeSource.name}?`);
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setIncomeMessage('');
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/users/${user.id}/income-sources/${incomeSource.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Could not delete income source.');
+      }
+
+      setIncomeSources((currentIncomeSources) =>
+        currentIncomeSources.filter((currentIncomeSource) => currentIncomeSource.id !== incomeSource.id),
+      );
+
+      if (editingIncomeSourceId === incomeSource.id) {
+        resetIncomeEditor();
+      }
+    } catch (error) {
+      setIncomeMessage(error.message);
+    }
+  };
+
   const handleEditExpenseSource = (expenseSource) => {
     setEditingExpenseSourceId(expenseSource.id);
     setExpenseForm(
       createDefaultExpenseForm(today, {
         amount: String(expenseSource.amount),
+        category: expenseCategoryOptions.some((option) => option.value === expenseSource.category)
+          ? expenseSource.category
+          : 'custom',
+        customCategory: expenseCategoryOptions.some((option) => option.value === expenseSource.category)
+          ? ''
+          : expenseSource.category,
         frequency: expenseSource.frequency,
         name: expenseSource.name,
         nextDueDate: expenseSource.nextDueDate.slice(0, 10),
+        spendingType: expenseSource.spendingType || 'essential',
       }),
     );
+  };
+
+  const handleDeleteExpenseSource = async (expenseSource) => {
+    const shouldDelete = globalThis.confirm(`Delete ${expenseSource.name}?`);
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setExpenseMessage('');
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/users/${user.id}/expense-sources/${expenseSource.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Could not delete expense.');
+      }
+
+      setExpenseSources((currentExpenseSources) =>
+        currentExpenseSources.filter((currentExpenseSource) => currentExpenseSource.id !== expenseSource.id),
+      );
+
+      if (editingExpenseSourceId === expenseSource.id) {
+        resetExpenseEditor();
+      }
+    } catch (error) {
+      setExpenseMessage(error.message);
+    }
   };
 
   const navigateMonth = (offset) => {
@@ -1480,9 +1716,14 @@ function App() {
                       </div>
                       <div className="income-item-actions">
                         <strong className="income-amount">{formatSignedCurrency(incomeSource.amount)}</strong>
-                        <button type="button" className="secondary-button" onClick={() => handleEditIncomeSource(incomeSource)}>
-                          Edit
-                        </button>
+                        <div className="history-actions">
+                          <button type="button" className="secondary-button" onClick={() => handleEditIncomeSource(incomeSource)}>
+                            Edit
+                          </button>
+                          <button type="button" className="secondary-button" onClick={() => handleDeleteIncomeSource(incomeSource)}>
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     </article>
                   ))
@@ -1516,6 +1757,39 @@ function App() {
                 </label>
 
                 <div className="income-form-grid">
+                  <label>
+                    Category
+                    <select name="category" onChange={handleExpenseChange} value={expenseForm.category}>
+                      {expenseCategoryOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Essential or discretionary
+                    <select name="spendingType" onChange={handleExpenseChange} value={expenseForm.spendingType}>
+                      <option value="essential">Essential</option>
+                      <option value="discretionary">Discretionary</option>
+                    </select>
+                  </label>
+
+                  {expenseForm.category === 'custom' && (
+                    <label>
+                      Custom category
+                      <input
+                        name="customCategory"
+                        onChange={handleExpenseChange}
+                        placeholder="ex. Pet care"
+                        required
+                        type="text"
+                        value={expenseForm.customCategory}
+                      />
+                    </label>
+                  )}
+
                   <label>
                     Frequency
                     <select name="frequency" onChange={handleExpenseChange} value={expenseForm.frequency}>
@@ -1592,20 +1866,32 @@ function App() {
                         <article className="income-item expense-item" key={expenseSource.id}>
                           <div className="income-item-copy">
                             <h3>{expenseSource.name}</h3>
-                            <p>{getFrequencyLabel(expenseSource.frequency)}</p>
+                            <p>
+                              {expenseSource.category} · {expenseSource.spendingType === 'essential' ? 'Essential' : 'Discretionary'} ·{' '}
+                              {getFrequencyLabel(expenseSource.frequency)}
+                            </p>
                             <small>
                               Next date: {formatLongDate(parseLocalDate(expenseSource.nextDueDate.slice(0, 10)))}
                             </small>
                           </div>
                           <div className="income-item-actions">
                             <strong>{formatExpenseCurrency(expenseSource.amount)}</strong>
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              onClick={() => handleEditExpenseSource(expenseSource)}
-                            >
-                              Edit
-                            </button>
+                            <div className="history-actions">
+                              <button
+                                type="button"
+                                className="secondary-button"
+                                onClick={() => handleEditExpenseSource(expenseSource)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary-button"
+                                onClick={() => handleDeleteExpenseSource(expenseSource)}
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </div>
                         </article>
                       ))
@@ -1708,7 +1994,7 @@ function App() {
 
                       const previewItems = getCalendarPreviewItems(calendarDay);
                       const hiddenItemCount =
-                        calendarDay.paydays.length + calendarDay.expenses.length - previewItems.length;
+                        calendarDay.paydays.length + calendarDay.expenses.length + calendarDay.goals.length - previewItems.length;
                       const isDayInSelectedWeek =
                         selectedWeekRange &&
                         isDateInRange(calendarDay.date, selectedWeekRange.start, selectedWeekRange.end);
@@ -1739,12 +2025,19 @@ function App() {
                               >
                                 {item.name}: {formatSignedCurrency(item.amount)}
                               </p>
-                            ) : (
+                            ) : type === 'expense' ? (
                               <p
                                 className="calendar-pill expense-pill"
                                 key={`expense-${item.expenseSourceId}-${item.date.toISOString()}`}
                               >
                                 {item.name}: {formatExpenseCurrency(item.amount)}
+                              </p>
+                            ) : (
+                              <p
+                                className="calendar-pill goal-pill"
+                                key={`goal-${item.id}-${item.date.toISOString()}`}
+                              >
+                                {item.name}: {formatCurrency(item.remainingAmount)}
                               </p>
                             ),
                           )}
@@ -1798,8 +2091,32 @@ function App() {
                 ) : (
                   detailExpenses.map((expense) => (
                     <div className="day-detail-item expense-detail-item" key={`${expense.expenseSourceId}-${expense.date.toISOString()}`}>
-                      <span>{selectedWeekRange ? `${formatLongDate(expense.date)} - ${expense.name}` : expense.name}</span>
+                      <span>
+                        {selectedWeekRange ? `${formatLongDate(expense.date)} - ${expense.name}` : expense.name}
+                        <small>
+                          {expense.category} · {expense.spendingType === 'essential' ? 'Essential' : 'Discretionary'}
+                        </small>
+                      </span>
                       <strong>{formatExpenseCurrency(expense.amount)}</strong>
+                    </div>
+                  ))
+                )}
+              </article>
+
+              <article className="day-detail-card">
+                <h3>Goals</h3>
+                {!hasDetailSelection ? (
+                  <p className="empty-state">Select a calendar range to see goal deadlines.</p>
+                ) : detailGoals.length === 0 ? (
+                  <p className="empty-state">No goals due for this selection yet.</p>
+                ) : (
+                  detailGoals.map((goal) => (
+                    <div className="day-detail-item goal-detail-item" key={`${goal.id}-${goal.date.toISOString()}`}>
+                      <span>
+                        {selectedWeekRange ? `${formatLongDate(goal.date)} - ${goal.name}` : goal.name}
+                        <small>{formatCurrency(goal.remainingAmount)} left to reach this goal</small>
+                      </span>
+                      <strong>{goal.estimatedDate ? formatLongDate(goal.estimatedDate) : 'Needs income'}</strong>
                     </div>
                   ))
                 )}
@@ -1849,7 +2166,7 @@ function App() {
           <p className="eyebrow">Selected Day (Net)</p>
           <strong>{formatCurrency(selectedDayNetTotal)}</strong>
           <span>
-            {selectedDay ? `Net on ${formatLongDate(selectedDay)}` : 'No day selected'}
+            {selectedDay ? formatLongDate(selectedDay) : 'No day selected'}
           </span>
         </article>
         <article>
@@ -1862,7 +2179,7 @@ function App() {
         <article>
           <p className="eyebrow">This Month (Net)</p>
           <strong>{formatCurrency(currentMonthNetTotal)}</strong>
-          <span>{currentMonthIncome.length} income date(s), {currentMonthExpenses.length} expense date(s) left</span>
+          <span>{currentMonthLabel} through {formatLongDate(currentMonthEnd)}</span>
         </article>
         <article>
           <p className="eyebrow">This Year (Net)</p>
@@ -1978,10 +2295,25 @@ function App() {
 
         <section className="snapshot-grid" aria-label="Budget snapshot">
           <article className="snapshot-chart-card">
-            <div className="pie-chart snapshot-pie" style={{ background: netSnapshotPie }}>
-              <div className="pie-chart-center">
-                <span>Net</span>
-                <strong>{formatCurrency(displayedMonthTotal - displayedMonthExpenseTotal)}</strong>
+            <div className="snapshot-pie-grid">
+              <div>
+                <div className="pie-chart snapshot-pie" style={{ background: netSnapshotPie }}>
+                  <div className="pie-chart-center">
+                    <span>Net</span>
+                    <strong>{formatCurrency(displayedMonthNetTotal)}</strong>
+                  </div>
+                </div>
+                <p>Income vs expenses</p>
+              </div>
+
+              <div>
+                <div className="pie-chart snapshot-pie" style={{ background: spendingTypeSnapshotPie }}>
+                  <div className="pie-chart-center">
+                    <span>Spend</span>
+                    <strong>{formatCurrency(displayedMonthExpenseTotal)}</strong>
+                  </div>
+                </div>
+                <p>Essential vs discretionary</p>
               </div>
             </div>
 
@@ -1996,7 +2328,15 @@ function App() {
               </div>
               <div>
                 <span>Net Available</span>
-                <strong>{formatCurrency(displayedMonthTotal - displayedMonthExpenseTotal)}</strong>
+                <strong>{formatCurrency(displayedMonthNetTotal)}</strong>
+              </div>
+              <div>
+                <span>Essential Spending</span>
+                <strong className="expense-amount">{formatExpenseCurrency(displayedMonthEssentialExpenseTotal)}</strong>
+              </div>
+              <div>
+                <span>Discretionary Spending</span>
+                <strong className="expense-amount">{formatExpenseCurrency(displayedMonthDiscretionaryExpenseTotal)}</strong>
               </div>
             </div>
           </article>
@@ -2043,6 +2383,19 @@ function App() {
             </label>
 
             <label>
+              Already saved
+              <input
+                min="0"
+                name="currentAmount"
+                onChange={handleBudgetGoalChange}
+                placeholder="50"
+                step="0.01"
+                type="number"
+                value={budgetGoalForm.currentAmount}
+              />
+            </label>
+
+            <label>
               Target amount
               <input
                 min="1"
@@ -2073,15 +2426,21 @@ function App() {
 
           <div className="goal-list">
             {budgetGoals.map((goal) => {
-              const estimatedDate = estimateGoalDate(goal.targetAmount, currentMonthNetTotal, today);
+              const currentAmount = Number(goal.currentAmount || 0);
+              const remainingAmount = Math.max(Number(goal.targetAmount) - currentAmount, 0);
+              const estimatedDate = estimateGoalDate(remainingAmount, currentMonthNetTotal, today);
               const targetDate = parseLocalDate(goal.targetDate);
               const canMeetGoal = estimatedDate && estimatedDate <= targetDate;
+              const progress = Math.min(100, (currentAmount / Number(goal.targetAmount)) * 100);
 
               return (
                 <article className="goal-card" key={goal.id}>
                   <div>
                     <h3>{goal.name}</h3>
-                    <p>{formatCurrency(goal.targetAmount)} needed by {formatLongDate(targetDate)}</p>
+                    <p>{formatCurrency(remainingAmount)} left of {formatCurrency(goal.targetAmount)} by {formatLongDate(targetDate)}</p>
+                    <progress value={progress} max="100">
+                      {Math.round(progress)}%
+                    </progress>
                   </div>
                   <div className={canMeetGoal ? 'goal-status is-on-track' : 'goal-status'}>
                     <span>{estimatedDate ? 'Could be met by' : 'Needs more net income'}</span>

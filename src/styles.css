@@ -723,6 +723,11 @@ button:disabled {
   justify-items: end;
 }
 
+.history-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
 .calendar-header {
   align-items: center;
   display: grid;
@@ -861,6 +866,11 @@ button:disabled {
   color: #991b1b;
 }
 
+.calendar-day .goal-pill {
+  background: #fef3c7;
+  color: #854d0e;
+}
+
 .calendar-see-more {
   color: #475569;
   display: block;
@@ -936,6 +946,22 @@ button:disabled {
   border-top: 1px solid #e5ece7;
 }
 
+.day-detail-item span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.day-detail-item small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.goal-detail-item strong {
+  color: #854d0e;
+  text-align: right;
+}
+
 .snapshot-grid {
   display: grid;
   gap: 1rem;
@@ -955,11 +981,25 @@ button:disabled {
   align-items: center;
   display: grid;
   gap: 1rem;
-  grid-template-columns: 180px minmax(0, 1fr);
+  grid-template-columns: minmax(220px, 0.95fr) minmax(0, 1fr);
+}
+
+.snapshot-pie-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.snapshot-pie-grid p {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 0.5rem 0 0;
+  text-align: center;
 }
 
 .snapshot-pie {
-  max-width: 180px;
+  max-width: 150px;
 }
 
 .snapshot-lines {
@@ -997,7 +1037,7 @@ button:disabled {
 .goal-form {
   display: grid;
   gap: 1rem;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr) minmax(0, 0.9fr) auto;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.75fr) minmax(0, 0.75fr) minmax(0, 0.9fr) auto;
 }
 
 .goal-form label {

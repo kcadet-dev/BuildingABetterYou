@@ -62,12 +62,14 @@ function serializeExpenseSource(expenseSource) {
 }
 
 function buildExpenseSourceData(payload, userId) {
-  const { amount, frequency, name, nextDueDate } = payload;
+  const { amount, category, frequency, name, nextDueDate, spendingType } = payload;
   const sourceName = String(name || '').trim();
+  const sourceCategory = String(category || '').trim();
+  const normalizedSpendingType = spendingType === 'discretionary' ? 'discretionary' : 'essential';
   const expenseAmount = Number(amount);
 
-  if (!sourceName || !frequency || !nextDueDate) {
-    return { error: 'Expense name, frequency, and first due date are required.' };
+  if (!sourceName || !sourceCategory || !frequency || !nextDueDate) {
+    return { error: 'Expense name, category, frequency, and first due date are required.' };
   }
 
   if (Number.isNaN(expenseAmount) || expenseAmount <= 0) {
@@ -77,9 +79,11 @@ function buildExpenseSourceData(payload, userId) {
   return {
     data: {
       amount: expenseAmount,
+      category: sourceCategory,
       frequency,
       name: sourceName,
       nextDueDate: new Date(nextDueDate),
+      spendingType: normalizedSpendingType,
       userId,
     },
   };
@@ -323,6 +327,32 @@ app.put('/api/users/:userId/income-sources/:incomeSourceId', async (req, res) =>
   res.json(serializeIncomeSource(updatedIncomeSource));
 });
 
+app.delete('/api/users/:userId/income-sources/:incomeSourceId', async (req, res) => {
+  const userId = Number(req.params.userId);
+  const incomeSourceId = Number(req.params.incomeSourceId);
+
+  if (!Number.isInteger(userId) || !Number.isInteger(incomeSourceId)) {
+    return res.status(400).json({ message: 'Valid ids are required.' });
+  }
+
+  const existingIncomeSource = await prisma.incomeSource.findFirst({
+    where: {
+      id: incomeSourceId,
+      userId,
+    },
+  });
+
+  if (!existingIncomeSource) {
+    return res.status(404).json({ message: 'Income source not found.' });
+  }
+
+  await prisma.incomeSource.delete({
+    where: { id: incomeSourceId },
+  });
+
+  res.status(204).send();
+});
+
 app.get('/api/users/:userId/expense-sources', async (req, res) => {
   const userId = Number(req.params.userId);
 
@@ -389,6 +419,32 @@ app.put('/api/users/:userId/expense-sources/:expenseSourceId', async (req, res) 
   });
 
   res.json(serializeExpenseSource(updatedExpenseSource));
+});
+
+app.delete('/api/users/:userId/expense-sources/:expenseSourceId', async (req, res) => {
+  const userId = Number(req.params.userId);
+  const expenseSourceId = Number(req.params.expenseSourceId);
+
+  if (!Number.isInteger(userId) || !Number.isInteger(expenseSourceId)) {
+    return res.status(400).json({ message: 'Valid ids are required.' });
+  }
+
+  const existingExpenseSource = await prisma.expenseSource.findFirst({
+    where: {
+      id: expenseSourceId,
+      userId,
+    },
+  });
+
+  if (!existingExpenseSource) {
+    return res.status(404).json({ message: 'Expense source not found.' });
+  }
+
+  await prisma.expenseSource.delete({
+    where: { id: expenseSourceId },
+  });
+
+  res.status(204).send();
 });
 
 app.get('/api/budgets', (req, res) => {

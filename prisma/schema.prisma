@@ -52,13 +52,15 @@ model IncomeSource {
 }
 
 model ExpenseSource {
-  id          Int      @id @default(autoincrement())
-  name        String
-  amount      Decimal
-  frequency   String
-  nextDueDate DateTime
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  name         String
+  amount       Decimal
+  category     String   @default("Other")
+  spendingType String   @default("essential")
+  frequency    String
+  nextDueDate  DateTime
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
