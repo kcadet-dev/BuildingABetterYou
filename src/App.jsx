@@ -105,6 +105,10 @@ function isSameDay(firstDate, secondDate) {
   );
 }
 
+function isDateInRange(date, startDate, endDate) {
+  return date >= startDate && date <= endDate;
+}
+
 function addDays(date, days) {
   const nextDate = new Date(date);
   nextDate.setDate(nextDate.getDate() + days);
@@ -262,6 +266,59 @@ function buildCalendarDays(monthStart, paydays, expenses, today) {
   return days;
 }
 
+function getCalendarPreviewItems(calendarDay) {
+  const hasIncome = calendarDay.paydays.length > 0;
+  const hasExpenses = calendarDay.expenses.length > 0;
+
+  if (hasIncome && hasExpenses) {
+    return [
+      { item: calendarDay.paydays[0], type: 'income' },
+      { item: calendarDay.expenses[0], type: 'expense' },
+    ];
+  }
+
+  if (hasIncome) {
+    return calendarDay.paydays.slice(0, 2).map((payday) => ({
+      item: payday,
+      type: 'income',
+    }));
+  }
+
+  return calendarDay.expenses.slice(0, 2).map((expense) => ({
+    item: expense,
+    type: 'expense',
+  }));
+}
+
+function buildCalendarWeeks(calendarDays) {
+  const weeks = [];
+
+  for (let index = 0; index < calendarDays.length; index += 7) {
+    const week = calendarDays.slice(index, index + 7);
+
+    while (week.length < 7) {
+      week.push(null);
+    }
+
+    weeks.push(week);
+  }
+
+  return weeks;
+}
+
+function getCalendarWeekRange(calendarWeek) {
+  const visibleDays = calendarWeek.filter(Boolean);
+
+  if (visibleDays.length === 0) {
+    return null;
+  }
+
+  return {
+    start: visibleDays[0].date,
+    end: visibleDays[visibleDays.length - 1].date,
+  };
+}
+
 function getWorkWeekRange(today) {
   const dayOfWeek = today.getDay();
   const mondayOffset = (dayOfWeek + 6) % 7;
@@ -330,10 +387,14 @@ function App() {
   const [incomeSources, setIncomeSources] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStart);
   const [selectedDay, setSelectedDay] = useState(null);
+  const [selectedMonthRange, setSelectedMonthRange] = useState(null);
+  const [selectedWeekRange, setSelectedWeekRange] = useState(null);
   const [editingExpenseSourceId, setEditingExpenseSourceId] = useState(null);
   const [editingIncomeSourceId, setEditingIncomeSourceId] = useState(null);
   const [activePlannerTab, setActivePlannerTab] = useState('income');
   const [activePage, setActivePage] = useState('planner');
+  const [isExpenseHistoryOpen, setIsExpenseHistoryOpen] = useState(false);
+  const [isIncomeHistoryOpen, setIsIncomeHistoryOpen] = useState(false);
   const [user, setUser] = useState(() => readStoredAuthSession());
   const [message, setMessage] = useState('');
   const [expenseMessage, setExpenseMessage] = useState('');
@@ -429,6 +490,43 @@ function App() {
     () => buildCalendarDays(selectedMonth, displayedMonthIncome, displayedMonthExpenses, today),
     [displayedMonthExpenses, displayedMonthIncome, selectedMonth, today],
   );
+  const calendarWeeks = useMemo(() => buildCalendarWeeks(calendarDays), [calendarDays]);
+  const selectedWeekIncome = useMemo(
+    () =>
+      selectedWeekRange
+        ? displayedMonthIncome.filter((income) =>
+            isDateInRange(income.date, selectedWeekRange.start, selectedWeekRange.end),
+          )
+        : [],
+    [displayedMonthIncome, selectedWeekRange],
+  );
+  const selectedWeekExpenses = useMemo(
+    () =>
+      selectedWeekRange
+        ? displayedMonthExpenses.filter((expense) =>
+            isDateInRange(expense.date, selectedWeekRange.start, selectedWeekRange.end),
+          )
+        : [],
+    [displayedMonthExpenses, selectedWeekRange],
+  );
+  const detailIncome = selectedMonthRange
+    ? displayedMonthIncome
+    : selectedWeekRange
+      ? selectedWeekIncome
+      : selectedDayIncome;
+  const detailExpenses = selectedMonthRange
+    ? displayedMonthExpenses
+    : selectedWeekRange
+      ? selectedWeekExpenses
+      : selectedDayExpenses;
+  const detailSelectionLabel = selectedMonthRange
+    ? displayedMonthLabel
+    : selectedWeekRange
+    ? `${formatLongDate(selectedWeekRange.start)} to ${formatLongDate(selectedWeekRange.end)}`
+    : selectedDay
+      ? formatLongDate(selectedDay)
+      : 'No Day Selected';
+  const hasDetailSelection = Boolean(selectedDay || selectedWeekRange || selectedMonthRange);
 
   const workWeekTotal = workWeekIncome.reduce((total, income) => total + income.amount, 0);
   const workWeekExpenseTotal = workWeekExpenses.reduce((total, expense) => total + expense.amount, 0);
@@ -687,6 +785,8 @@ function App() {
       setActivePage('planner');
       setSelectedMonth(currentMonthStart);
       setSelectedDay(null);
+      setSelectedMonthRange(null);
+      setSelectedWeekRange(null);
       setFormData(emptyAuthForm);
       setExpenseMessage('');
       setIncomeMessage('');
@@ -861,6 +961,8 @@ function App() {
 
     setSelectedMonth(nextMonth);
     setSelectedDay(null);
+    setSelectedMonthRange(null);
+    setSelectedWeekRange(null);
   };
 
   if (!user) {
@@ -1269,32 +1371,45 @@ function App() {
             </div>
           </form>
 
-          <div className="income-list">
-            {incomeSources.length === 0 ? (
-              <p className="empty-state">No income sources added yet.</p>
-            ) : (
-              incomeSources.map((incomeSource) => (
-                <article className="income-item" key={incomeSource.id}>
-                  <div className="income-item-copy">
-                    <h3>{incomeSource.name}</h3>
-                    <p>
-                      {getFrequencyLabel(incomeSource.frequency)} •{' '}
-                      {incomeSource.useTaxEstimate
-                        ? `${incomeSource.compensationType === 'salaried' ? 'Salaried' : 'Hourly'} take-home estimate`
-                        : 'Direct amount'}
-                    </p>
-                    <small>Next date: {formatLongDate(parseLocalDate(incomeSource.nextPayDate.slice(0, 10)))}</small>
-                  </div>
-                  <div className="income-item-actions">
-                    <strong className="income-amount">{formatSignedCurrency(incomeSource.amount)}</strong>
-                    <button type="button" className="secondary-button" onClick={() => handleEditIncomeSource(incomeSource)}>
-                      Edit
-                    </button>
-                  </div>
-                </article>
-              ))
+          <section className="source-history">
+            <button
+              className="history-toggle"
+              type="button"
+              onClick={() => setIsIncomeHistoryOpen((isOpen) => !isOpen)}
+            >
+              <span>Income History</span>
+              <small>{incomeSources.length} saved</small>
+            </button>
+
+            {isIncomeHistoryOpen && (
+              <div className="income-list">
+                {incomeSources.length === 0 ? (
+                  <p className="empty-state">No income sources added yet.</p>
+                ) : (
+                  incomeSources.map((incomeSource) => (
+                    <article className="income-item" key={incomeSource.id}>
+                      <div className="income-item-copy">
+                        <h3>{incomeSource.name}</h3>
+                        <p>
+                          {getFrequencyLabel(incomeSource.frequency)} •{' '}
+                          {incomeSource.useTaxEstimate
+                            ? `${incomeSource.compensationType === 'salaried' ? 'Salaried' : 'Hourly'} take-home estimate`
+                            : 'Direct amount'}
+                        </p>
+                        <small>Next date: {formatLongDate(parseLocalDate(incomeSource.nextPayDate.slice(0, 10)))}</small>
+                      </div>
+                      <div className="income-item-actions">
+                        <strong className="income-amount">{formatSignedCurrency(incomeSource.amount)}</strong>
+                        <button type="button" className="secondary-button" onClick={() => handleEditIncomeSource(incomeSource)}>
+                          Edit
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
             )}
-          </div>
+          </section>
             </>
           ) : (
             <section className="expense-placeholder" aria-labelledby="expense-heading">
@@ -1378,33 +1493,46 @@ function App() {
                 </div>
               </form>
 
-              <div className="income-list">
-                {expenseSources.length === 0 ? (
-                  <p className="empty-state">No expense sources added yet.</p>
-                ) : (
-                  expenseSources.map((expenseSource) => (
-                    <article className="income-item expense-item" key={expenseSource.id}>
-                      <div className="income-item-copy">
-                        <h3>{expenseSource.name}</h3>
-                        <p>{getFrequencyLabel(expenseSource.frequency)}</p>
-                        <small>
-                          Next date: {formatLongDate(parseLocalDate(expenseSource.nextDueDate.slice(0, 10)))}
-                        </small>
-                      </div>
-                      <div className="income-item-actions">
-                        <strong>-{formatCurrency(expenseSource.amount)}</strong>
-                        <button
-                          type="button"
-                          className="secondary-button"
-                          onClick={() => handleEditExpenseSource(expenseSource)}
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    </article>
-                  ))
+              <section className="source-history">
+                <button
+                  className="history-toggle"
+                  type="button"
+                  onClick={() => setIsExpenseHistoryOpen((isOpen) => !isOpen)}
+                >
+                  <span>Expense History</span>
+                  <small>{expenseSources.length} saved</small>
+                </button>
+
+                {isExpenseHistoryOpen && (
+                  <div className="income-list">
+                    {expenseSources.length === 0 ? (
+                      <p className="empty-state">No expense sources added yet.</p>
+                    ) : (
+                      expenseSources.map((expenseSource) => (
+                        <article className="income-item expense-item" key={expenseSource.id}>
+                          <div className="income-item-copy">
+                            <h3>{expenseSource.name}</h3>
+                            <p>{getFrequencyLabel(expenseSource.frequency)}</p>
+                            <small>
+                              Next date: {formatLongDate(parseLocalDate(expenseSource.nextDueDate.slice(0, 10)))}
+                            </small>
+                          </div>
+                          <div className="income-item-actions">
+                            <strong>{formatExpenseCurrency(expenseSource.amount)}</strong>
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              onClick={() => handleEditExpenseSource(expenseSource)}
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        </article>
+                      ))
+                    )}
+                  </div>
                 )}
-              </div>
+              </section>
             </section>
           )}
         </section>
@@ -1422,7 +1550,26 @@ function App() {
               </button>
               <div className="calendar-title">
                 <p className="eyebrow">Calendar</p>
-                <h2 id="calendar-heading">{displayedMonthLabel}</h2>
+                <button
+                  className={`month-select-button ${selectedMonthRange ? 'active' : ''}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDay(null);
+                    setSelectedWeekRange(null);
+                    setSelectedMonthRange((currentMonthRange) =>
+                      currentMonthRange &&
+                      isSameDay(currentMonthRange.start, selectedMonth) &&
+                      isSameDay(currentMonthRange.end, displayedMonthEnd)
+                        ? null
+                        : {
+                            start: selectedMonth,
+                            end: displayedMonthEnd,
+                          },
+                    );
+                  }}
+                >
+                  <span id="calendar-heading">{displayedMonthLabel}</span>
+                </button>
               </div>
               <button
                 type="button"
@@ -1435,81 +1582,127 @@ function App() {
             </div>
 
             <div className="calendar-weekdays" aria-hidden="true">
+              <span />
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((weekday) => (
                 <span key={weekday}>{weekday}</span>
               ))}
             </div>
 
             <div className="calendar-grid">
-              {calendarDays.map((calendarDay, index) =>
-                calendarDay ? (
-                  <button
-                    type="button"
-                    className={`calendar-day ${calendarDay.isToday ? 'today' : ''} ${
-                      selectedDay && isSameDay(calendarDay.date, selectedDay) ? 'selected' : ''
-                    }`}
-                    key={calendarDay.date.toISOString()}
-                    onClick={() =>
-                      setSelectedDay((currentSelectedDay) =>
-                        currentSelectedDay && isSameDay(calendarDay.date, currentSelectedDay)
-                          ? null
-                          : calendarDay.date,
-                      )
-                    }
-                  >
-                    <span>{calendarDay.date.getDate()}</span>
-                    {calendarDay.paydays.slice(0, 2).map((payday) => (
-                      <p className="calendar-pill income-pill" key={`${payday.incomeSourceId}-${payday.date.toISOString()}`}>
-                        {payday.name}: {formatSignedCurrency(payday.amount)}
-                      </p>
-                    ))}
-                    {calendarDay.expenses.slice(0, 2).map((expense) => (
-                      <p
-                        className="calendar-pill expense-pill"
-                        key={`${expense.expenseSourceId}-${expense.date.toISOString()}`}
-                      >
-                        {expense.name}: {formatExpenseCurrency(expense.amount)}
-                      </p>
-                    ))}
-                    {Math.max(calendarDay.paydays.length - 2, 0) + Math.max(calendarDay.expenses.length - 2, 0) >
-                      0 && (
-                      <p className="calendar-pill overflow-pill">
-                        +{Math.max(calendarDay.paydays.length - 2, 0) +
-                          Math.max(calendarDay.expenses.length - 2, 0)}{' '}
-                        more
-                      </p>
-                    )}
-                  </button>
-                ) : (
-                  <div className="calendar-day empty" key={`empty-${index}`} />
-                ),
-              )}
+              {calendarWeeks.map((calendarWeek, weekIndex) => {
+                const weekRange = getCalendarWeekRange(calendarWeek);
+                const isSelectedWeek =
+                  selectedWeekRange &&
+                  weekRange &&
+                  isSameDay(selectedWeekRange.start, weekRange.start) &&
+                  isSameDay(selectedWeekRange.end, weekRange.end);
+                return (
+                  <div className={`calendar-week-row ${isSelectedWeek ? 'selected-week' : ''}`} key={`week-${weekIndex}`}>
+                    <button
+                      className="week-select-button"
+                      disabled={!weekRange}
+                      onClick={() => {
+                        if (!weekRange) {
+                          return;
+                        }
+
+                        setSelectedDay(null);
+                        setSelectedMonthRange(null);
+                        setSelectedWeekRange((currentWeekRange) =>
+                          currentWeekRange &&
+                          isSameDay(currentWeekRange.start, weekRange.start) &&
+                          isSameDay(currentWeekRange.end, weekRange.end)
+                            ? null
+                            : weekRange,
+                        );
+                      }}
+                      type="button"
+                    >
+                      Week {weekIndex + 1}
+                    </button>
+
+                    {calendarWeek.map((calendarDay, dayIndex) => {
+                      if (!calendarDay) {
+                        return <div className="calendar-day empty" key={`empty-${weekIndex}-${dayIndex}`} />;
+                      }
+
+                      const previewItems = getCalendarPreviewItems(calendarDay);
+                      const hiddenItemCount =
+                        calendarDay.paydays.length + calendarDay.expenses.length - previewItems.length;
+                      const isDayInSelectedWeek =
+                        selectedWeekRange &&
+                        isDateInRange(calendarDay.date, selectedWeekRange.start, selectedWeekRange.end);
+
+                      return (
+                        <button
+                          type="button"
+                          className={`calendar-day ${calendarDay.isToday ? 'today' : ''} ${
+                            selectedDay && isSameDay(calendarDay.date, selectedDay) ? 'selected' : ''
+                          } ${isDayInSelectedWeek ? 'week-selected-day' : ''}`}
+                          key={calendarDay.date.toISOString()}
+                          onClick={() => {
+                            setSelectedMonthRange(null);
+                            setSelectedWeekRange(null);
+                            setSelectedDay((currentSelectedDay) =>
+                              currentSelectedDay && isSameDay(calendarDay.date, currentSelectedDay)
+                                ? null
+                                : calendarDay.date,
+                            );
+                          }}
+                        >
+                          <span>{calendarDay.date.getDate()}</span>
+                          {previewItems.map(({ item, type }) =>
+                            type === 'income' ? (
+                              <p
+                                className="calendar-pill income-pill"
+                                key={`income-${item.incomeSourceId}-${item.date.toISOString()}`}
+                              >
+                                {item.name}: {formatSignedCurrency(item.amount)}
+                              </p>
+                            ) : (
+                              <p
+                                className="calendar-pill expense-pill"
+                                key={`expense-${item.expenseSourceId}-${item.date.toISOString()}`}
+                              >
+                                {item.name}: {formatExpenseCurrency(item.amount)}
+                              </p>
+                            ),
+                          )}
+                          {hiddenItemCount > 0 && (
+                            <small className="calendar-see-more">+{hiddenItemCount} more</small>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
           </section>
 
           <section className="day-panel" aria-labelledby="day-heading">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">Selected Day</p>
-                <h2 id="day-heading">
-                  {selectedDay ? formatLongDate(selectedDay) : 'No Day Selected'}
-                </h2>
+                <p className="eyebrow">
+                  {selectedMonthRange ? 'Selected Month' : selectedWeekRange ? 'Selected Week' : 'Selected Day'}
+                </p>
+                <h2 id="day-heading">{detailSelectionLabel}</h2>
               </div>
             </div>
 
             <div className="day-detail-grid">
               <article className="day-detail-card">
                 <h3>Income</h3>
-                {!selectedDay ? (
+                {!hasDetailSelection ? (
                   <p className="empty-state">
-                    No day selected. Click a day in the calendar to inspect that day more closely.
+                    No day, week, or month selected. Click a date, Week button, or month title to inspect it more closely.
                   </p>
-                ) : selectedDayIncome.length === 0 ? (
-                  <p className="empty-state">No income scheduled on this day yet.</p>
+                ) : detailIncome.length === 0 ? (
+                  <p className="empty-state">No income scheduled for this selection yet.</p>
                 ) : (
-                  selectedDayIncome.map((income) => (
+                  detailIncome.map((income) => (
                     <div className="day-detail-item" key={`${income.incomeSourceId}-${income.date.toISOString()}`}>
-                      <span>{income.name}</span>
+                      <span>{selectedWeekRange ? `${formatLongDate(income.date)} - ${income.name}` : income.name}</span>
                       <strong className="income-amount">{formatSignedCurrency(income.amount)}</strong>
                     </div>
                   ))
@@ -1518,14 +1711,14 @@ function App() {
 
               <article className="day-detail-card">
                 <h3>Expenses</h3>
-                {!selectedDay ? (
-                  <p className="empty-state">No day selected. Summary stays cleaner until you click into a date.</p>
-                ) : selectedDayExpenses.length === 0 ? (
-                  <p className="empty-state">No expenses scheduled on this day yet.</p>
+                {!hasDetailSelection ? (
+                  <p className="empty-state">No day, week, or month selected. Summary stays cleaner until you choose a calendar range.</p>
+                ) : detailExpenses.length === 0 ? (
+                  <p className="empty-state">No expenses scheduled for this selection yet.</p>
                 ) : (
-                  selectedDayExpenses.map((expense) => (
+                  detailExpenses.map((expense) => (
                     <div className="day-detail-item expense-detail-item" key={`${expense.expenseSourceId}-${expense.date.toISOString()}`}>
-                      <span>{expense.name}</span>
+                      <span>{selectedWeekRange ? `${formatLongDate(expense.date)} - ${expense.name}` : expense.name}</span>
                       <strong>{formatExpenseCurrency(expense.amount)}</strong>
                     </div>
                   ))
