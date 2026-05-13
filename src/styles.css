@@ -187,6 +187,28 @@ button:disabled {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.page-tabs {
+  background: #eef2ef;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.3rem;
+  grid-template-columns: 1fr 1fr;
+  justify-self: start;
+  max-width: 300px;
+  padding: 0.25rem;
+}
+
+.page-tabs button {
+  background: transparent;
+  color: #55636a;
+}
+
+.page-tabs button.active {
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgb(31 41 55 / 0.08);
+  color: #111827;
+}
+
 .summary-grid article {
   background: var(--card);
   border: 1px solid var(--card-border);
@@ -216,6 +238,92 @@ button:disabled {
   display: grid;
   gap: 1rem;
   grid-template-columns: minmax(320px, 390px) minmax(0, 1fr);
+}
+
+.summary-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.chart-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.chart-panel {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 1rem;
+}
+
+.chart-body {
+  align-items: center;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.pie-chart {
+  align-items: center;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  display: grid;
+  justify-items: center;
+  margin: 0 auto;
+  max-width: 220px;
+  position: relative;
+  width: 100%;
+}
+
+.pie-chart::after {
+  background: #ffffff;
+  border-radius: 999px;
+  content: "";
+  inset: 20%;
+  position: absolute;
+}
+
+.pie-chart-center {
+  display: grid;
+  justify-items: center;
+  position: relative;
+  text-align: center;
+  z-index: 1;
+}
+
+.pie-chart-center span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.pie-chart-center strong {
+  font-size: 1.2rem;
+  line-height: 1.2;
+}
+
+.chart-legend {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.legend-row {
+  align-items: center;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.legend-dot {
+  border-radius: 999px;
+  height: 0.8rem;
+  width: 0.8rem;
+}
+
+.legend-label {
+  min-width: 0;
 }
 
 .calendar-column {
@@ -518,6 +626,8 @@ progress {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .chart-grid,
+  .chart-body,
   .workspace-grid,
   .day-detail-grid {
     grid-template-columns: 1fr;

@@ -14,6 +14,7 @@ const starterBudgets = [
   { id: 1, name: 'Groceries', limit: 300, spent: 120 },
   { id: 2, name: 'Savings', limit: 200, spent: 75 },
 ];
+const chartColors = ['#136f63', '#f59e0b', '#2563eb', '#dc2626', '#7c3aed', '#0f766e'];
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-US', {
@@ -178,6 +179,42 @@ function getMonthStart(dateValue) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
+function buildIncomeBreakdown(incomeOccurrences) {
+  const totals = new Map();
+  let grandTotal = 0;
+
+  incomeOccurrences.forEach((incomeOccurrence) => {
+    grandTotal += incomeOccurrence.amount;
+    totals.set(incomeOccurrence.name, (totals.get(incomeOccurrence.name) || 0) + incomeOccurrence.amount);
+  });
+
+  return Array.from(totals.entries())
+    .sort((firstItem, secondItem) => secondItem[1] - firstItem[1])
+    .map(([name, amount], index) => ({
+      amount,
+      color: chartColors[index % chartColors.length],
+      name,
+      share: grandTotal === 0 ? 0 : amount / grandTotal,
+    }));
+}
+
+function buildPieGradient(items, emptyColor = '#e5ece7') {
+  if (items.length === 0) {
+    return `conic-gradient(${emptyColor} 0deg 360deg)`;
+  }
+
+  let currentAngle = 0;
+  const stops = items.map((item) => {
+    const start = currentAngle;
+    const end = currentAngle + item.share * 360;
+    currentAngle = end;
+
+    return `${item.color} ${start}deg ${end}deg`;
+  });
+
+  return `conic-gradient(${stops.join(', ')})`;
+}
+
 function App() {
   const today = useMemo(() => new Date(), []);
   const currentMonthStart = useMemo(() => new Date(today.getFullYear(), today.getMonth(), 1), [today]);
@@ -194,6 +231,7 @@ function App() {
   const [selectedDay, setSelectedDay] = useState(today);
   const [editingIncomeSourceId, setEditingIncomeSourceId] = useState(null);
   const [activePlannerTab, setActivePlannerTab] = useState('income');
+  const [activePage, setActivePage] = useState('planner');
   const [user, setUser] = useState(null);
   const [message, setMessage] = useState('');
   const [incomeMessage, setIncomeMessage] = useState('');
@@ -258,6 +296,16 @@ function App() {
   const selectedDayTotal = selectedDayIncome.reduce((total, income) => total + income.amount, 0);
   const currentMonthTotal = currentMonthIncome.reduce((total, income) => total + income.amount, 0);
   const yearTotal = yearIncome.reduce((total, income) => total + income.amount, 0);
+  const displayedMonthTotal = displayedMonthIncome.reduce((total, income) => total + income.amount, 0);
+  const selectedMonthBreakdown = useMemo(
+    () => buildIncomeBreakdown(displayedMonthIncome),
+    [displayedMonthIncome],
+  );
+  const selectedMonthPie = useMemo(
+    () => buildPieGradient(selectedMonthBreakdown),
+    [selectedMonthBreakdown],
+  );
+  const expensePie = useMemo(() => buildPieGradient([], '#edf2f7'), []);
 
   const isEstimateVisible = incomeForm.useTaxEstimate;
   const estimatedGrossPay = !incomeForm.useTaxEstimate
@@ -380,6 +428,7 @@ function App() {
       }
 
       setUser({ createdAt: data.createdAt, id: data.id, username: data.username });
+      setActivePage('planner');
       setSelectedMonth(currentMonthStart);
       setSelectedDay(today);
       setFormData({ username: '', password: '' });
@@ -581,35 +630,24 @@ function App() {
         </button>
       </header>
 
-      <section className="summary-grid" aria-label="Income summary">
-        <article>
-          <p className="eyebrow">Selected Day</p>
-          <strong>{formatCurrency(selectedDayTotal)}</strong>
-          <span>Income on {formatLongDate(selectedDay)}</span>
-          <small>Expenses: $0.00</small>
-        </article>
-        <article>
-          <p className="eyebrow">This Week</p>
-          <strong>{formatCurrency(workWeekTotal)}</strong>
-          <span>
-            {formatLongDate(workWeek.start)} to {formatLongDate(workWeek.end)}
-          </span>
-          <small>Expenses: $0.00</small>
-        </article>
-        <article>
-          <p className="eyebrow">This Month</p>
-          <strong>{formatCurrency(currentMonthTotal)}</strong>
-          <span>{currentMonthIncome.length} income date(s) left this month</span>
-          <small>Expenses: $0.00</small>
-        </article>
-        <article>
-          <p className="eyebrow">This Year</p>
-          <strong>{formatCurrency(yearTotal)}</strong>
-          <span>expected through {formatLongDate(yearEnd)}</span>
-          <small>Expenses: $0.00</small>
-        </article>
-      </section>
+      <nav className="page-tabs" aria-label="Primary pages">
+        <button
+          type="button"
+          className={activePage === 'planner' ? 'active' : ''}
+          onClick={() => setActivePage('planner')}
+        >
+          Planner
+        </button>
+        <button
+          type="button"
+          className={activePage === 'summary' ? 'active' : ''}
+          onClick={() => setActivePage('summary')}
+        >
+          Summary
+        </button>
+      </nav>
 
+      {activePage === 'planner' ? (
       <section className="workspace-grid">
         <section className="income-panel" aria-labelledby="income-heading">
           <div className="planner-tabs" aria-label="Planner sections">
@@ -954,11 +992,98 @@ function App() {
           </section>
         </div>
       </section>
+      ) : (
+      <>
+      <section className="summary-grid" aria-label="Income summary">
+        <article>
+          <p className="eyebrow">Selected Day</p>
+          <strong>{formatCurrency(selectedDayTotal)}</strong>
+          <span>Income on {formatLongDate(selectedDay)}</span>
+          <small>Expenses: $0.00</small>
+        </article>
+        <article>
+          <p className="eyebrow">This Week</p>
+          <strong>{formatCurrency(workWeekTotal)}</strong>
+          <span>
+            {formatLongDate(workWeek.start)} to {formatLongDate(workWeek.end)}
+          </span>
+          <small>Expenses: $0.00</small>
+        </article>
+        <article>
+          <p className="eyebrow">This Month</p>
+          <strong>{formatCurrency(currentMonthTotal)}</strong>
+          <span>{currentMonthIncome.length} income date(s) left this month</span>
+          <small>Expenses: $0.00</small>
+        </article>
+        <article>
+          <p className="eyebrow">This Year</p>
+          <strong>{formatCurrency(yearTotal)}</strong>
+          <span>expected through {formatLongDate(yearEnd)}</span>
+          <small>Expenses: $0.00</small>
+        </article>
+      </section>
+
+      <section className="summary-layout">
+        <section className="chart-grid">
+          <article className="chart-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Expected Income</p>
+                <h2>{displayedMonthLabel}</h2>
+              </div>
+            </div>
+
+            <div className="chart-body">
+              <div className="pie-chart" style={{ background: selectedMonthPie }}>
+                <div className="pie-chart-center">
+                  <span>Total</span>
+                  <strong>{formatCurrency(displayedMonthTotal)}</strong>
+                </div>
+              </div>
+
+              <div className="chart-legend">
+                {selectedMonthBreakdown.length === 0 ? (
+                  <p className="empty-state">No expected income in this month yet.</p>
+                ) : (
+                  selectedMonthBreakdown.map((item) => (
+                    <div className="legend-row" key={item.name}>
+                      <span className="legend-dot" style={{ background: item.color }} />
+                      <span className="legend-label">{item.name}</span>
+                      <strong>{formatCurrency(item.amount)}</strong>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </article>
+
+          <article className="chart-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Expected Expenses</p>
+                <h2>{displayedMonthLabel}</h2>
+              </div>
+            </div>
+
+            <div className="chart-body">
+              <div className="pie-chart" style={{ background: expensePie }}>
+                <div className="pie-chart-center">
+                  <span>Total</span>
+                  <strong>$0.00</strong>
+                </div>
+              </div>
+
+              <div className="chart-legend">
+                <p className="empty-state">Expense categories and charts will fill in once we wire up expenses.</p>
+              </div>
+            </div>
+          </article>
+        </section>
 
       <section className="budget-panel" aria-labelledby="budget-heading">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Later Build</p>
+            <p className="eyebrow">Budget Snapshot</p>
             <h2 id="budget-heading">Monthly Budget</h2>
           </div>
           <button type="button">Add Category</button>
@@ -980,6 +1105,9 @@ function App() {
           ))}
         </div>
       </section>
+      </section>
+      </>
+      )}
     </main>
   );
 }
