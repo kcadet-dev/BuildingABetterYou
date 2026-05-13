@@ -10,16 +10,32 @@ const frequencyOptions = [
   { value: 'one_time', label: 'One-time', intervalDays: null },
 ];
 
-const starterBudgets = [
-  { id: 1, name: 'Groceries', limit: 300, spent: 120 },
-  { id: 2, name: 'Savings', limit: 200, spent: 75 },
-];
 const starterGoals = [
-  { currentAmount: 75, id: 1, name: 'Emergency Cushion', targetAmount: 500, targetDate: '2026-08-01' },
-  { currentAmount: 25, id: 2, name: 'Textbooks', targetAmount: 250, targetDate: '2026-06-15' },
+  {
+    contributionAmount: 25,
+    contributionFrequency: 'weekly',
+    currentAmount: 75,
+    firstContributionDate: '2026-05-15',
+    id: 1,
+    name: 'Emergency Cushion',
+    payments: [],
+    targetAmount: 500,
+    targetDate: '2026-08-01',
+  },
+  {
+    contributionAmount: 20,
+    contributionFrequency: 'weekly',
+    currentAmount: 25,
+    firstContributionDate: '2026-05-15',
+    id: 2,
+    name: 'Textbooks',
+    payments: [],
+    targetAmount: 250,
+    targetDate: '2026-06-15',
+  },
 ];
-const chartColors = ['#64748b', '#94a3b8', '#cbd5e1', '#7c8da5', '#a8b3c5', '#d5dce7'];
-const expenseChartColors = ['#8b9aaa', '#b4bfca', '#d6dde5', '#718096', '#a1adba', '#e2e8f0'];
+const chartColors = ['#15803d', '#22c55e', '#86efac', '#16a34a', '#4ade80', '#bbf7d0'];
+const expenseChartColors = ['#ef4444', '#f87171', '#fca5a5', '#fb7185', '#fecaca', '#fda4af'];
 const expenseCategoryOptions = [
   { label: 'Housing', type: 'essential', value: 'Housing' },
   { label: 'Utilities', type: 'essential', value: 'Utilities' },
@@ -35,6 +51,7 @@ const expenseCategoryOptions = [
   { label: 'Custom Category', type: 'essential', value: 'custom' },
 ];
 const authStorageKey = 'baby-finance-auth-session';
+const goalsStoragePrefix = 'baby-finance-goals';
 const emptyAuthForm = {
   dateOfBirth: '',
   email: '',
@@ -67,6 +84,30 @@ function readStoredAuthSession() {
   }
 }
 
+function getGoalsStorageKey(userId) {
+  return `${goalsStoragePrefix}-${userId}`;
+}
+
+function readStoredGoals(userId) {
+  if (!userId || typeof globalThis === 'undefined' || !globalThis.localStorage) {
+    return starterGoals;
+  }
+
+  try {
+    const rawGoals = globalThis.localStorage.getItem(getGoalsStorageKey(userId));
+
+    if (!rawGoals) {
+      return starterGoals;
+    }
+
+    const parsedGoals = JSON.parse(rawGoals);
+
+    return Array.isArray(parsedGoals) ? parsedGoals : starterGoals;
+  } catch {
+    return starterGoals;
+  }
+}
+
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-US', {
     currency: 'USD',
@@ -83,6 +124,13 @@ function formatSignedCurrency(value) {
 
 function formatExpenseCurrency(value) {
   return `-${formatCurrency(Math.abs(Number(value)))}`;
+}
+
+function formatPercent(value) {
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 0,
+    style: 'percent',
+  }).format(value || 0);
 }
 
 function formatDateInput(date) {
@@ -176,7 +224,10 @@ function createDefaultExpenseForm(today, overrides = {}) {
 
 function createDefaultGoalForm(today, overrides = {}) {
   return {
+    contributionAmount: '',
+    contributionFrequency: 'weekly',
     currentAmount: '',
+    firstContributionDate: formatDateInput(today),
     name: '',
     targetAmount: '',
     targetDate: formatDateInput(addMonths(today, 1)),
@@ -280,23 +331,118 @@ function getOccurrencesForExpenseSource(expenseSource, startDate, endDate) {
   return occurrences;
 }
 
-function getGoalCalendarItems(goals, monthStart, monthEnd, monthlyNet, today) {
-  return goals
-    .map((goal) => {
-      const targetDate = parseLocalDate(goal.targetDate);
-      const remainingAmount = Math.max(Number(goal.targetAmount) - Number(goal.currentAmount || 0), 0);
-      const estimatedDate = estimateGoalDate(remainingAmount, monthlyNet, today);
+function isGoalPaidOff(goal) {
+  return Number(goal.currentAmount || 0) >= Number(goal.targetAmount || 0);
+}
 
-      return {
-        ...goal,
-        currentAmount: Number(goal.currentAmount || 0),
-        date: targetDate,
-        estimatedDate,
-        remainingAmount,
-        targetAmount: Number(goal.targetAmount),
-      };
-    })
-    .filter((goal) => isDateInRange(goal.date, monthStart, monthEnd));
+function getGoalPaymentKey(goalId, date) {
+  return `${goalId}-${formatDateInput(date)}`;
+}
+
+function hasGoalPaymentForDate(goal, date) {
+  const paymentKey = getGoalPaymentKey(goal.id, date);
+
+  return (goal.payments || []).some((payment) => payment.paymentKey === paymentKey);
+}
+
+function getGoalScheduledDate(goal, startDate, endDate) {
+  const frequency = frequencyOptions.find((option) => option.value === goal.contributionFrequency);
+  let occurrenceDate = parseLocalDate(goal.firstContributionDate || goal.targetDate);
+
+  while (occurrenceDate <= endDate) {
+    if (occurrenceDate >= startDate) {
+      return occurrenceDate;
+    }
+
+    if (goal.contributionFrequency === 'one_time') {
+      return null;
+    }
+
+    occurrenceDate =
+      frequency?.value === 'monthly'
+        ? addMonths(occurrenceDate, 1)
+        : addDays(occurrenceDate, frequency?.intervalDays || 7);
+  }
+
+  return null;
+}
+
+function estimateGoalDateFromPlan(goal, today) {
+  const remainingAmount = Math.max(Number(goal.targetAmount) - Number(goal.currentAmount || 0), 0);
+  const contributionAmount = Number(goal.contributionAmount || 0);
+
+  if (remainingAmount <= 0) {
+    return today;
+  }
+
+  if (contributionAmount <= 0) {
+    return null;
+  }
+
+  if (goal.contributionFrequency === 'one_time' && contributionAmount < remainingAmount) {
+    return null;
+  }
+
+  const frequency = frequencyOptions.find((option) => option.value === goal.contributionFrequency);
+  const paymentsNeeded = Math.ceil(remainingAmount / contributionAmount);
+  let estimatedDate = parseLocalDate(goal.firstContributionDate || formatDateInput(today));
+
+  if (estimatedDate < today) {
+    estimatedDate = today;
+  }
+
+  for (let count = 1; count < paymentsNeeded; count += 1) {
+    estimatedDate =
+      frequency?.value === 'monthly'
+        ? addMonths(estimatedDate, 1)
+        : addDays(estimatedDate, frequency?.intervalDays || 7);
+  }
+
+  return estimatedDate;
+}
+
+function buildGoalEvent(goal, date, type, today) {
+  const remainingAmount = Math.max(Number(goal.targetAmount) - Number(goal.currentAmount || 0), 0);
+
+  return {
+    ...goal,
+    amount: Number(goal.contributionAmount || 0),
+    currentAmount: Number(goal.currentAmount || 0),
+    date,
+    estimatedDate: estimateGoalDateFromPlan(goal, today),
+    eventId: `${goal.id}-${type}-${formatDateInput(date)}`,
+    remainingAmount,
+    targetAmount: Number(goal.targetAmount),
+    type,
+  };
+}
+
+function getGoalCalendarItems(goals, monthStart, monthEnd, today) {
+  return goals.flatMap((goal) => {
+    const targetDate = parseLocalDate(goal.targetDate);
+    const events = [];
+    const scheduledDate = getGoalScheduledDate(goal, monthStart, monthEnd);
+    const paymentEvents = (goal.payments || [])
+      .map((payment) => ({
+        ...buildGoalEvent(goal, parseLocalDate(payment.date), 'payment', today),
+        amount: Number(payment.amount),
+        eventId: `${goal.id}-payment-${payment.id}`,
+        paymentId: payment.id,
+      }))
+      .filter((payment) => isDateInRange(payment.date, monthStart, monthEnd));
+
+    if (scheduledDate && !isGoalPaidOff(goal) && !hasGoalPaymentForDate(goal, scheduledDate)) {
+      events.push(buildGoalEvent(goal, scheduledDate, 'contribution', today));
+    }
+
+    events.push(...paymentEvents);
+
+    if (isDateInRange(targetDate, monthStart, monthEnd)) {
+      events.push(buildGoalEvent(goal, targetDate, 'deadline', today));
+    }
+
+    return events;
+  });
 }
 
 function buildCalendarDays(monthStart, paydays, expenses, goals, today) {
@@ -322,39 +468,30 @@ function buildCalendarDays(monthStart, paydays, expenses, goals, today) {
 }
 
 function getCalendarPreviewItems(calendarDay) {
-  const hasIncome = calendarDay.paydays.length > 0;
-  const hasExpenses = calendarDay.expenses.length > 0;
-  const hasGoals = calendarDay.goals.length > 0;
+  const previewItems = [];
 
-  if (hasIncome && hasExpenses) {
-    return [
-      { item: calendarDay.paydays[0], type: 'income' },
-      { item: calendarDay.expenses[0], type: 'expense' },
-    ];
+  if (calendarDay.paydays.length > 0) {
+    previewItems.push({ item: calendarDay.paydays[0], type: 'income' });
   }
 
-  if (hasIncome) {
-    return [
-      { item: calendarDay.paydays[0], type: 'income' },
-      ...(hasGoals
-        ? [{ item: calendarDay.goals[0], type: 'goal' }]
-        : calendarDay.paydays.slice(1, 2).map((payday) => ({ item: payday, type: 'income' }))),
-    ];
+  if (calendarDay.expenses.length > 0) {
+    previewItems.push({ item: calendarDay.expenses[0], type: 'expense' });
   }
 
-  if (hasExpenses) {
-    return [
-      { item: calendarDay.expenses[0], type: 'expense' },
-      ...(hasGoals
-        ? [{ item: calendarDay.goals[0], type: 'goal' }]
-        : calendarDay.expenses.slice(1, 2).map((expense) => ({ item: expense, type: 'expense' }))),
-    ];
+  if (calendarDay.goals.length > 0) {
+    previewItems.push({ item: calendarDay.goals[0], type: 'goal' });
   }
 
-  return calendarDay.goals.slice(0, 2).map((goal) => ({
-    item: goal,
-    type: 'goal',
-  }));
+  const remainingItems = [
+    ...calendarDay.paydays.slice(previewItems.some((previewItem) => previewItem.type === 'income') ? 1 : 0)
+      .map((payday) => ({ item: payday, type: 'income' })),
+    ...calendarDay.expenses.slice(previewItems.some((previewItem) => previewItem.type === 'expense') ? 1 : 0)
+      .map((expense) => ({ item: expense, type: 'expense' })),
+    ...calendarDay.goals.slice(previewItems.some((previewItem) => previewItem.type === 'goal') ? 1 : 0)
+      .map((goal) => ({ item: goal, type: 'goal' })),
+  ];
+
+  return [...previewItems, ...remainingItems].slice(0, 3);
 }
 
 function buildCalendarWeeks(calendarDays) {
@@ -434,10 +571,37 @@ function buildExpenseBreakdown(expenses) {
     .sort((firstItem, secondItem) => secondItem[1] - firstItem[1])
     .map(([name, amount], index) => ({
       amount,
-      color: expenseChartColors[index % expenseChartColors.length],
+      color: name === 'Goals' ? '#facc15' : expenseChartColors[index % expenseChartColors.length],
       name,
       share: grandTotal === 0 ? 0 : amount / grandTotal,
     }));
+}
+
+function buildDiscretionarySavingsItems(expenses) {
+  const totals = new Map();
+
+  expenses
+    .filter((expense) => expense.spendingType === 'discretionary')
+    .forEach((expense) => {
+      totals.set(expense.category, (totals.get(expense.category) || 0) + expense.amount);
+    });
+
+  return Array.from(totals.entries())
+    .sort((firstItem, secondItem) => secondItem[1] - firstItem[1])
+    .map(([name, amount]) => ({
+      amount,
+      name,
+    }));
+}
+
+function formatChartTooltip(items) {
+  if (items.length === 0) {
+    return 'No categories yet';
+  }
+
+  return items
+    .map((item) => `${item.name}: ${formatCurrency(item.amount)} (${formatPercent(item.share)})`)
+    .join('\n');
 }
 
 function buildPieGradient(items, emptyColor = '#e5ece7') {
@@ -457,7 +621,7 @@ function buildPieGradient(items, emptyColor = '#e5ece7') {
   return `conic-gradient(${stops.join(', ')})`;
 }
 
-function buildNetSnapshotItems(incomeTotal, expenseTotal) {
+function buildNetSnapshotItems(incomeTotal, expenseTotal, goalTotal) {
   const items = [
     {
       amount: Math.max(incomeTotal, 0),
@@ -468,6 +632,11 @@ function buildNetSnapshotItems(incomeTotal, expenseTotal) {
       amount: Math.max(expenseTotal, 0),
       color: '#d6dde5',
       name: 'Expenses',
+    },
+    {
+      amount: Math.max(goalTotal, 0),
+      color: '#facc15',
+      name: 'Goals',
     },
   ];
   const total = items.reduce((sum, item) => sum + item.amount, 0);
@@ -482,12 +651,12 @@ function buildSpendingTypeSnapshotItems(essentialTotal, discretionaryTotal) {
   const items = [
     {
       amount: Math.max(essentialTotal, 0),
-      color: '#94a3b8',
+      color: '#93c5fd',
       name: 'Essential',
     },
     {
       amount: Math.max(discretionaryTotal, 0),
-      color: '#facc15',
+      color: '#3b82f6',
       name: 'Discretionary',
     },
   ];
@@ -497,20 +666,6 @@ function buildSpendingTypeSnapshotItems(essentialTotal, discretionaryTotal) {
     ...item,
     share: total === 0 ? 0 : item.amount / total,
   }));
-}
-
-function estimateGoalDate(goalAmount, monthlyNet, today) {
-  if (goalAmount <= 0) {
-    return today;
-  }
-
-  const dailyNet = monthlyNet / 30;
-
-  if (dailyNet <= 0) {
-    return null;
-  }
-
-  return addDays(today, Math.ceil(goalAmount / dailyNet));
 }
 
 function App() {
@@ -525,6 +680,7 @@ function App() {
   const [formData, setFormData] = useState(emptyAuthForm);
   const [budgetGoalForm, setBudgetGoalForm] = useState(createDefaultGoalForm(today));
   const [budgetGoals, setBudgetGoals] = useState(starterGoals);
+  const [editingGoalId, setEditingGoalId] = useState(null);
   const [expenseForm, setExpenseForm] = useState(createDefaultExpenseForm(today));
   const [expenseSources, setExpenseSources] = useState([]);
   const [incomeForm, setIncomeForm] = useState(createDefaultIncomeForm(today));
@@ -537,6 +693,8 @@ function App() {
   const [editingIncomeSourceId, setEditingIncomeSourceId] = useState(null);
   const [activePlannerTab, setActivePlannerTab] = useState('income');
   const [activePage, setActivePage] = useState('planner');
+  const [expenseChartPeriod, setExpenseChartPeriod] = useState('monthly');
+  const [incomeChartPeriod, setIncomeChartPeriod] = useState('monthly');
   const [isExpenseHistoryOpen, setIsExpenseHistoryOpen] = useState(false);
   const [isIncomeHistoryOpen, setIsIncomeHistoryOpen] = useState(false);
   const [user, setUser] = useState(() => readStoredAuthSession());
@@ -634,6 +792,26 @@ function App() {
       selectedDay ? displayedMonthExpenses.filter((expense) => isSameDay(expense.date, selectedDay)) : [],
     [displayedMonthExpenses, selectedDay],
   );
+  const displayedMonthGoals = useMemo(
+    () => getGoalCalendarItems(budgetGoals, selectedMonth, displayedMonthEnd, today),
+    [budgetGoals, displayedMonthEnd, selectedMonth, today],
+  );
+  const selectedDayGoals = useMemo(
+    () => selectedDay ? displayedMonthGoals.filter((goal) => isSameDay(goal.date, selectedDay)) : [],
+    [displayedMonthGoals, selectedDay],
+  );
+  const currentMonthGoals = useMemo(
+    () => getGoalCalendarItems(budgetGoals, today, currentMonthEnd, today),
+    [budgetGoals, currentMonthEnd, today],
+  );
+  const workWeekGoals = useMemo(
+    () => getGoalCalendarItems(budgetGoals, workWeek.start, workWeek.end, today),
+    [budgetGoals, today, workWeek.end, workWeek.start],
+  );
+  const yearGoals = useMemo(
+    () => getGoalCalendarItems(budgetGoals, today, yearEnd, today),
+    [budgetGoals, today, yearEnd],
+  );
   const workWeekTotal = workWeekIncome.reduce((total, income) => total + income.amount, 0);
   const workWeekExpenseTotal = workWeekExpenses.reduce((total, expense) => total + expense.amount, 0);
   const selectedDayTotal = selectedDayIncome.reduce((total, income) => total + income.amount, 0);
@@ -644,24 +822,24 @@ function App() {
   const yearExpenseTotal = yearExpenses.reduce((total, expense) => total + expense.amount, 0);
   const displayedMonthTotal = displayedMonthIncome.reduce((total, income) => total + income.amount, 0);
   const displayedMonthExpenseTotal = displayedMonthExpenses.reduce((total, expense) => total + expense.amount, 0);
-  const selectedDayNetTotal = selectedDayTotal - selectedDayExpenseTotal;
-  const workWeekNetTotal = workWeekTotal - workWeekExpenseTotal;
-  const currentMonthNetTotal = currentMonthTotal - currentMonthExpenseTotal;
-  const yearNetTotal = yearTotal - yearExpenseTotal;
-  const displayedMonthNetTotal = displayedMonthTotal - displayedMonthExpenseTotal;
+  const workWeekGoalTotal = workWeekGoals.reduce((total, goal) => total + (goal.type === 'deadline' ? 0 : goal.amount), 0);
+  const currentMonthGoalTotal = currentMonthGoals.reduce((total, goal) => total + (goal.type === 'deadline' ? 0 : goal.amount), 0);
+  const yearGoalTotal = yearGoals.reduce((total, goal) => total + (goal.type === 'deadline' ? 0 : goal.amount), 0);
+  const displayedMonthGoalTotal = displayedMonthGoals.reduce((total, goal) => total + (goal.type === 'deadline' ? 0 : goal.amount), 0);
+  const workWeekNetTotal = workWeekTotal - workWeekExpenseTotal - workWeekGoalTotal;
+  const currentMonthNetTotal = currentMonthTotal - currentMonthExpenseTotal - currentMonthGoalTotal;
+  const yearNetTotal = yearTotal - yearExpenseTotal - yearGoalTotal;
+  const displayedMonthNetTotal = displayedMonthTotal - displayedMonthExpenseTotal - displayedMonthGoalTotal;
   const displayedMonthEssentialExpenseTotal = displayedMonthExpenses
     .filter((expense) => expense.spendingType === 'essential')
     .reduce((total, expense) => total + expense.amount, 0);
   const displayedMonthDiscretionaryExpenseTotal = displayedMonthExpenses
     .filter((expense) => expense.spendingType === 'discretionary')
     .reduce((total, expense) => total + expense.amount, 0);
-  const displayedMonthGoals = useMemo(
-    () => getGoalCalendarItems(budgetGoals, selectedMonth, displayedMonthEnd, displayedMonthNetTotal, today),
-    [budgetGoals, displayedMonthEnd, displayedMonthNetTotal, selectedMonth, today],
-  );
-  const selectedDayGoals = useMemo(
-    () => selectedDay ? displayedMonthGoals.filter((goal) => isSameDay(goal.date, selectedDay)) : [],
-    [displayedMonthGoals, selectedDay],
+  const displayedMonthSpendingTypeTotal = displayedMonthExpenseTotal + displayedMonthGoalTotal;
+  const discretionarySavingsItems = useMemo(
+    () => buildDiscretionarySavingsItems(displayedMonthExpenses),
+    [displayedMonthExpenses],
   );
   const calendarDays = useMemo(
     () => buildCalendarDays(selectedMonth, displayedMonthIncome, displayedMonthExpenses, displayedMonthGoals, today),
@@ -718,25 +896,93 @@ function App() {
       ? formatLongDate(selectedDay)
       : 'No Day Selected';
   const hasDetailSelection = Boolean(selectedDay || selectedWeekRange || selectedMonthRange);
-  const selectedMonthBreakdown = useMemo(
-    () => buildBreakdown(displayedMonthIncome),
-    [displayedMonthIncome],
+  const detailGoalTotal = detailGoals.reduce((total, goal) => total + (goal.type === 'deadline' ? 0 : goal.amount), 0);
+  const detailNetTotal = detailIncome.reduce((total, income) => total + income.amount, 0)
+    - detailExpenses.reduce((total, expense) => total + expense.amount, 0)
+    - detailGoalTotal;
+  const canAllocateGoalNet = Boolean(selectedWeekRange || selectedMonthRange) && detailNetTotal > 0;
+  const allocationLabel = selectedMonthRange ? 'month' : 'week';
+  const chartIncome = incomeChartPeriod === 'weekly'
+    ? workWeekIncome
+    : incomeChartPeriod === 'yearly'
+      ? yearIncome
+      : displayedMonthIncome;
+  const chartExpenses = expenseChartPeriod === 'weekly'
+    ? workWeekExpenses
+    : expenseChartPeriod === 'yearly'
+      ? yearExpenses
+      : displayedMonthExpenses;
+  const chartGoalPayments = expenseChartPeriod === 'weekly'
+    ? workWeekGoals
+    : expenseChartPeriod === 'yearly'
+      ? yearGoals
+      : displayedMonthGoals;
+  const chartExpenseItems = useMemo(
+    () => [
+      ...chartExpenses,
+      ...chartGoalPayments
+        .filter((goal) => goal.type !== 'deadline')
+        .map((goal) => ({
+          amount: goal.amount,
+          category: 'Goals',
+          name: goal.name,
+          spendingType: 'goal',
+        })),
+    ],
+    [chartExpenses, chartGoalPayments],
   );
-  const selectedMonthExpenseBreakdown = useMemo(
-    () => buildExpenseBreakdown(displayedMonthExpenses),
-    [displayedMonthExpenses],
+  const chartIncomeTotal = chartIncome.reduce((total, income) => total + income.amount, 0);
+  const chartExpenseTotal = chartExpenseItems.reduce((total, expense) => total + expense.amount, 0);
+  const chartEssentialExpenseTotal = chartExpenses
+    .filter((expense) => expense.spendingType === 'essential')
+    .reduce((total, expense) => total + expense.amount, 0);
+  const chartDiscretionaryExpenseTotal = chartExpenseItems
+    .filter((expense) => expense.spendingType === 'discretionary' || expense.spendingType === 'goal')
+    .reduce((total, expense) => total + expense.amount, 0);
+  const chartPeriodLabels = {
+    monthly: displayedMonthLabel,
+    weekly: `${formatLongDate(workWeek.start)} to ${formatLongDate(workWeek.end)}`,
+    yearly: `through ${formatLongDate(yearEnd)}`,
+  };
+  const selectedIncomeBreakdown = useMemo(
+    () => buildBreakdown(chartIncome),
+    [chartIncome],
+  );
+  const selectedExpenseBreakdown = useMemo(
+    () => buildExpenseBreakdown(chartExpenseItems),
+    [chartExpenseItems],
   );
   const selectedMonthPie = useMemo(
-    () => buildPieGradient(selectedMonthBreakdown),
-    [selectedMonthBreakdown],
+    () => buildPieGradient(selectedIncomeBreakdown),
+    [selectedIncomeBreakdown],
   );
   const expensePie = useMemo(
-    () => buildPieGradient(selectedMonthExpenseBreakdown, '#edf2f7'),
-    [selectedMonthExpenseBreakdown],
+    () => buildPieGradient(selectedExpenseBreakdown, '#edf2f7'),
+    [selectedExpenseBreakdown],
+  );
+  const expenseTypePie = useMemo(
+    () =>
+      buildPieGradient(
+        buildSpendingTypeSnapshotItems(chartEssentialExpenseTotal, chartDiscretionaryExpenseTotal),
+        '#edf2f7',
+      ),
+    [chartDiscretionaryExpenseTotal, chartEssentialExpenseTotal],
+  );
+  const incomePieTooltip = useMemo(
+    () => formatChartTooltip(selectedIncomeBreakdown),
+    [selectedIncomeBreakdown],
+  );
+  const expensePieTooltip = useMemo(
+    () => formatChartTooltip(selectedExpenseBreakdown),
+    [selectedExpenseBreakdown],
   );
   const netSnapshotItems = useMemo(
-    () => buildNetSnapshotItems(displayedMonthTotal, displayedMonthExpenseTotal),
-    [displayedMonthExpenseTotal, displayedMonthTotal],
+    () => buildNetSnapshotItems(displayedMonthTotal, displayedMonthExpenseTotal, displayedMonthGoalTotal),
+    [displayedMonthExpenseTotal, displayedMonthGoalTotal, displayedMonthTotal],
+  );
+  const netSnapshotTooltip = useMemo(
+    () => formatChartTooltip(netSnapshotItems),
+    [netSnapshotItems],
   );
   const netSnapshotPie = useMemo(
     () => buildPieGradient(netSnapshotItems, '#edf2f7'),
@@ -746,12 +992,16 @@ function App() {
     () =>
       buildSpendingTypeSnapshotItems(
         displayedMonthEssentialExpenseTotal,
-        displayedMonthDiscretionaryExpenseTotal,
+        displayedMonthDiscretionaryExpenseTotal + displayedMonthGoalTotal,
       ),
-    [displayedMonthDiscretionaryExpenseTotal, displayedMonthEssentialExpenseTotal],
+    [displayedMonthDiscretionaryExpenseTotal, displayedMonthEssentialExpenseTotal, displayedMonthGoalTotal],
   );
   const spendingTypeSnapshotPie = useMemo(
     () => buildPieGradient(spendingTypeSnapshotItems, '#edf2f7'),
+    [spendingTypeSnapshotItems],
+  );
+  const spendingTypeTooltip = useMemo(
+    () => formatChartTooltip(spendingTypeSnapshotItems),
     [spendingTypeSnapshotItems],
   );
 
@@ -842,6 +1092,10 @@ function App() {
   }, [userId]);
 
   useEffect(() => {
+    setBudgetGoals(readStoredGoals(userId));
+  }, [userId]);
+
+  useEffect(() => {
     if (typeof globalThis === 'undefined' || !globalThis.localStorage) {
       return;
     }
@@ -861,6 +1115,14 @@ function App() {
     );
   }, [user]);
 
+  useEffect(() => {
+    if (!userId || typeof globalThis === 'undefined' || !globalThis.localStorage) {
+      return;
+    }
+
+    globalThis.localStorage.setItem(getGoalsStorageKey(userId), JSON.stringify(budgetGoals));
+  }, [budgetGoals, userId]);
+
   const handleChange = (event) => {
     setFormData((currentFormData) => ({
       ...currentFormData,
@@ -872,6 +1134,11 @@ function App() {
     setBudgetGoalForm((currentGoalForm) => ({
       ...currentGoalForm,
       [event.target.name]: event.target.value,
+      ...(event.target.name === 'contributionFrequency' && event.target.value === 'one_time'
+        ? {
+            firstContributionDate: currentGoalForm.firstContributionDate || currentGoalForm.targetDate,
+          }
+        : {}),
     }));
   };
 
@@ -882,17 +1149,116 @@ function App() {
       return;
     }
 
-    setBudgetGoals((currentGoals) => [
-      ...currentGoals,
-      {
-        currentAmount: Number(budgetGoalForm.currentAmount || 0),
-        id: Date.now(),
-        name: budgetGoalForm.name.trim(),
-        targetAmount: Number(budgetGoalForm.targetAmount),
-        targetDate: budgetGoalForm.targetDate,
-      },
-    ]);
+    const goalData = {
+      contributionAmount: Number(budgetGoalForm.contributionAmount || 0),
+      contributionFrequency: budgetGoalForm.contributionFrequency,
+      currentAmount: Number(budgetGoalForm.currentAmount || 0),
+      firstContributionDate: budgetGoalForm.firstContributionDate,
+      name: budgetGoalForm.name.trim(),
+      targetAmount: Number(budgetGoalForm.targetAmount),
+      targetDate: budgetGoalForm.targetDate,
+    };
+
+    if (editingGoalId) {
+      setBudgetGoals((currentGoals) =>
+        currentGoals.map((goal) =>
+          goal.id === editingGoalId
+            ? {
+                ...goal,
+                ...goalData,
+              }
+            : goal,
+        ),
+      );
+      setEditingGoalId(null);
+    } else {
+      setBudgetGoals((currentGoals) => [
+        ...currentGoals,
+        {
+          ...goalData,
+          id: Date.now(),
+          payments: [],
+        },
+      ]);
+    }
+
     setBudgetGoalForm(createDefaultGoalForm(today));
+  };
+
+  const resetGoalEditor = () => {
+    setEditingGoalId(null);
+    setBudgetGoalForm(createDefaultGoalForm(today));
+  };
+
+  const handleEditGoal = (goal) => {
+    setEditingGoalId(goal.id);
+    setBudgetGoalForm(
+      createDefaultGoalForm(today, {
+        contributionAmount: String(goal.contributionAmount || ''),
+        contributionFrequency: goal.contributionFrequency || 'weekly',
+        currentAmount: String(goal.currentAmount || ''),
+        firstContributionDate: goal.firstContributionDate || formatDateInput(today),
+        name: goal.name,
+        targetAmount: String(goal.targetAmount || ''),
+        targetDate: goal.targetDate,
+      }),
+    );
+  };
+
+  const addGoalPayment = (goalId, amount, date, note) => {
+    const paymentAmount = Number(amount);
+
+    if (paymentAmount <= 0) {
+      return;
+    }
+
+    setBudgetGoals((currentGoals) =>
+      currentGoals.map((goal) => {
+        if (goal.id !== goalId) {
+          return goal;
+        }
+
+        const remainingAmount = Math.max(Number(goal.targetAmount) - Number(goal.currentAmount || 0), 0);
+        const appliedAmount = Math.min(paymentAmount, remainingAmount);
+
+        if (appliedAmount <= 0) {
+          return goal;
+        }
+
+        return {
+          ...goal,
+          currentAmount: Number(goal.currentAmount || 0) + appliedAmount,
+          payments: [
+            ...(goal.payments || []),
+            {
+              amount: appliedAmount,
+              date: formatDateInput(date),
+              id: Date.now(),
+              note,
+              paymentKey: getGoalPaymentKey(goal.id, date),
+            },
+          ],
+        };
+      }),
+    );
+  };
+
+  const handleConfirmGoalPayment = (goalEvent) => {
+    addGoalPayment(goalEvent.id, goalEvent.amount, goalEvent.date, 'Scheduled contribution');
+  };
+
+  const handleAllocateGoalNet = (goal) => {
+    addGoalPayment(goal.id, detailNetTotal, selectedMonthRange ? selectedMonthRange.end : selectedWeekRange.end, `Allocated ${allocationLabel} net pay`);
+  };
+
+  const handleDeleteGoal = (goal) => {
+    const shouldDelete = globalThis.confirm(`Delete ${goal.name}?`);
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setBudgetGoals((currentGoals) => currentGoals.filter((currentGoal) => currentGoal.id !== goal.id));
   };
 
   const handleIncomeChange = (event) => {
@@ -2035,9 +2401,14 @@ function App() {
                             ) : (
                               <p
                                 className="calendar-pill goal-pill"
-                                key={`goal-${item.id}-${item.date.toISOString()}`}
+                                key={item.eventId}
                               >
-                                {item.name}: {formatCurrency(item.remainingAmount)}
+                                {item.type === 'payment'
+                                  ? 'Saved'
+                                  : item.type === 'contribution'
+                                    ? 'Save'
+                                    : 'Goal'}
+                                : {formatCurrency(item.type === 'deadline' ? item.remainingAmount : item.amount)}
                               </p>
                             ),
                           )}
@@ -2064,6 +2435,22 @@ function App() {
             </div>
 
             <div className="day-detail-grid">
+              <article className="day-detail-card net-detail-card">
+                <h3>Net</h3>
+                {!hasDetailSelection ? (
+                  <p className="empty-state">Select a day, week, or month to see net for that range.</p>
+                ) : (
+                  <div className="net-detail-total">
+                    <strong>{formatCurrency(detailNetTotal)}</strong>
+                    <small>
+                      Income {formatSignedCurrency(detailIncome.reduce((total, income) => total + income.amount, 0))} · Expenses{' '}
+                      {formatExpenseCurrency(detailExpenses.reduce((total, expense) => total + expense.amount, 0))} · Goals{' '}
+                      {formatExpenseCurrency(detailGoalTotal)}
+                    </small>
+                  </div>
+                )}
+              </article>
+
               <article className="day-detail-card">
                 <h3>Income</h3>
                 {!hasDetailSelection ? (
@@ -2111,12 +2498,26 @@ function App() {
                   <p className="empty-state">No goals due for this selection yet.</p>
                 ) : (
                   detailGoals.map((goal) => (
-                    <div className="day-detail-item goal-detail-item" key={`${goal.id}-${goal.date.toISOString()}`}>
+                    <div className="day-detail-item goal-detail-item" key={goal.eventId}>
                       <span>
-                        {selectedWeekRange ? `${formatLongDate(goal.date)} - ${goal.name}` : goal.name}
-                        <small>{formatCurrency(goal.remainingAmount)} left to reach this goal</small>
+                        {selectedWeekRange || selectedMonthRange ? `${formatLongDate(goal.date)} - ${goal.name}` : goal.name}
+                        <small>
+                          {goal.type === 'contribution'
+                            ? `${formatCurrency(goal.amount)} scheduled contribution`
+                            : goal.type === 'payment'
+                              ? `${formatCurrency(goal.amount)} confirmed payment`
+                            : `${formatCurrency(goal.remainingAmount)} left by deadline`}
+                        </small>
                       </span>
-                      <strong>{goal.estimatedDate ? formatLongDate(goal.estimatedDate) : 'Needs income'}</strong>
+                      {goal.type === 'contribution' ? (
+                        <button type="button" className="secondary-button" onClick={() => handleConfirmGoalPayment(goal)}>
+                          Confirm Paid
+                        </button>
+                      ) : goal.type === 'payment' ? (
+                        <strong>Saved</strong>
+                      ) : (
+                        <strong>{goal.estimatedDate ? formatLongDate(goal.estimatedDate) : 'Needs plan'}</strong>
+                      )}
                     </div>
                   ))
                 )}
@@ -2163,11 +2564,9 @@ function App() {
       <>
       <section className="summary-grid" aria-label="Income summary">
         <article>
-          <p className="eyebrow">Selected Day (Net)</p>
-          <strong>{formatCurrency(selectedDayNetTotal)}</strong>
-          <span>
-            {selectedDay ? formatLongDate(selectedDay) : 'No day selected'}
-          </span>
+          <p className="eyebrow">This Year (Gross)</p>
+          <strong>{formatCurrency(yearTotal)}</strong>
+          <span>income expected through {formatLongDate(yearEnd)}</span>
         </article>
         <article>
           <p className="eyebrow">This Week (Net)</p>
@@ -2194,27 +2593,39 @@ function App() {
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">Expected Income</p>
-                <h2>{displayedMonthLabel}</h2>
+                <h2>{chartPeriodLabels[incomeChartPeriod]}</h2>
               </div>
+              <select
+                className="chart-period-select"
+                onChange={(event) => setIncomeChartPeriod(event.target.value)}
+                value={incomeChartPeriod}
+              >
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
             </div>
 
             <div className="chart-body">
-              <div className="pie-chart" style={{ background: selectedMonthPie }}>
+              <div className="pie-chart" style={{ background: selectedMonthPie }} title={incomePieTooltip}>
                 <div className="pie-chart-center">
                   <span>Total</span>
-                  <strong>{formatCurrency(displayedMonthTotal)}</strong>
+                  <strong>{formatCurrency(chartIncomeTotal)}</strong>
                 </div>
               </div>
 
               <div className="chart-legend">
-                {selectedMonthBreakdown.length === 0 ? (
-                  <p className="empty-state">No expected income in this month yet.</p>
+                {selectedIncomeBreakdown.length === 0 ? (
+                  <p className="empty-state">No expected income in this period yet.</p>
                 ) : (
-                  selectedMonthBreakdown.map((item) => (
+                  selectedIncomeBreakdown.map((item) => (
                     <div className="legend-row" key={item.name}>
                       <span className="legend-dot" style={{ background: item.color }} />
                       <span className="legend-label">{item.name}</span>
-                      <strong>{formatCurrency(item.amount)}</strong>
+                      <strong>
+                        {formatCurrency(item.amount)}
+                        <small>{formatPercent(item.share)}</small>
+                      </strong>
                     </div>
                   ))
                 )}
@@ -2227,12 +2638,12 @@ function App() {
                 <strong>{formatSignedCurrency(selectedDayTotal)}</strong>
               </span>
               <span>
-                <small>This Week</small>
-                <strong>{formatSignedCurrency(workWeekTotal)}</strong>
+                <small>{incomeChartPeriod === 'yearly' ? 'This Month' : 'This Week'}</small>
+                <strong>{formatSignedCurrency(incomeChartPeriod === 'yearly' ? currentMonthTotal : workWeekTotal)}</strong>
               </span>
               <span>
-                <small>This Month</small>
-                <strong>{formatSignedCurrency(currentMonthTotal)}</strong>
+                <small>{incomeChartPeriod === 'yearly' ? 'This Year' : 'This Month'}</small>
+                <strong>{formatSignedCurrency(incomeChartPeriod === 'yearly' ? yearTotal : currentMonthTotal)}</strong>
               </span>
             </div>
           </article>
@@ -2241,27 +2652,51 @@ function App() {
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">Expected Expenses</p>
-                <h2>{displayedMonthLabel}</h2>
+                <h2>{chartPeriodLabels[expenseChartPeriod]}</h2>
               </div>
+              <select
+                className="chart-period-select"
+                onChange={(event) => setExpenseChartPeriod(event.target.value)}
+                value={expenseChartPeriod}
+              >
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
             </div>
 
             <div className="chart-body">
-              <div className="pie-chart" style={{ background: expensePie }}>
-                <div className="pie-chart-center">
-                  <span>Total</span>
-                  <strong>{formatCurrency(displayedMonthExpenseTotal)}</strong>
+              <div className="chart-pie-stack">
+                <div className="expense-pie-shell" style={{ background: expenseTypePie }} title={expensePieTooltip}>
+                  <div className="pie-chart expense-inner-pie" style={{ background: expensePie }}>
+                    <div className="pie-chart-center">
+                      <span>Total</span>
+                      <strong>{formatCurrency(chartExpenseTotal)}</strong>
+                    </div>
+                  </div>
+                </div>
+                <div className="expense-ring-legend">
+                  <span>
+                    <i className="essential-dot" /> Essential {formatPercent(chartExpenseTotal === 0 ? 0 : chartEssentialExpenseTotal / chartExpenseTotal)}
+                  </span>
+                  <span>
+                    <i className="discretionary-dot" /> Discretionary {formatPercent(chartExpenseTotal === 0 ? 0 : chartDiscretionaryExpenseTotal / chartExpenseTotal)}
+                  </span>
                 </div>
               </div>
 
               <div className="chart-legend">
-                {selectedMonthExpenseBreakdown.length === 0 ? (
-                  <p className="empty-state">No expected expenses in this month yet.</p>
+                {selectedExpenseBreakdown.length === 0 ? (
+                  <p className="empty-state">No expected expenses in this period yet.</p>
                 ) : (
-                  selectedMonthExpenseBreakdown.map((item) => (
+                  selectedExpenseBreakdown.map((item) => (
                     <div className="legend-row" key={item.name}>
                       <span className="legend-dot" style={{ background: item.color }} />
                       <span className="legend-label">{item.name}</span>
-                      <strong>{formatCurrency(item.amount)}</strong>
+                      <strong>
+                        {formatCurrency(item.amount)}
+                        <small>{formatPercent(item.share)}</small>
+                      </strong>
                     </div>
                   ))
                 )}
@@ -2274,12 +2709,12 @@ function App() {
                 <strong>{formatExpenseCurrency(selectedDayExpenseTotal)}</strong>
               </span>
               <span>
-                <small>This Week</small>
-                <strong>{formatExpenseCurrency(workWeekExpenseTotal)}</strong>
+                <small>{expenseChartPeriod === 'yearly' ? 'This Month' : 'This Week'}</small>
+                <strong>{formatExpenseCurrency(expenseChartPeriod === 'yearly' ? currentMonthExpenseTotal : workWeekExpenseTotal)}</strong>
               </span>
               <span>
-                <small>This Month</small>
-                <strong>{formatExpenseCurrency(currentMonthExpenseTotal)}</strong>
+                <small>{expenseChartPeriod === 'yearly' ? 'This Year' : 'This Month'}</small>
+                <strong>{formatExpenseCurrency(expenseChartPeriod === 'yearly' ? yearExpenseTotal : currentMonthExpenseTotal)}</strong>
               </span>
             </div>
           </article>
@@ -2297,17 +2732,17 @@ function App() {
           <article className="snapshot-chart-card">
             <div className="snapshot-pie-grid">
               <div>
-                <div className="pie-chart snapshot-pie" style={{ background: netSnapshotPie }}>
+                <div className="pie-chart snapshot-pie" style={{ background: netSnapshotPie }} title={netSnapshotTooltip}>
                   <div className="pie-chart-center">
                     <span>Net</span>
                     <strong>{formatCurrency(displayedMonthNetTotal)}</strong>
                   </div>
                 </div>
-                <p>Income vs expenses</p>
+                <p>Income vs expenses/goals</p>
               </div>
 
               <div>
-                <div className="pie-chart snapshot-pie" style={{ background: spendingTypeSnapshotPie }}>
+                <div className="pie-chart snapshot-pie" style={{ background: spendingTypeSnapshotPie }} title={spendingTypeTooltip}>
                   <div className="pie-chart-center">
                     <span>Spend</span>
                     <strong>{formatCurrency(displayedMonthExpenseTotal)}</strong>
@@ -2323,42 +2758,55 @@ function App() {
                 <strong className="income-amount">{formatSignedCurrency(displayedMonthTotal)}</strong>
               </div>
               <div>
-                <span>Expenses</span>
+                <span>
+                  Expenses
+                  <small>
+                    Essential {formatExpenseCurrency(displayedMonthEssentialExpenseTotal)} · Discretionary{' '}
+                    {formatExpenseCurrency(displayedMonthDiscretionaryExpenseTotal + displayedMonthGoalTotal)}
+                    <br />
+                    {formatPercent(displayedMonthSpendingTypeTotal === 0 ? 0 : displayedMonthEssentialExpenseTotal / displayedMonthSpendingTypeTotal)} essential ·{' '}
+                    {formatPercent(
+                      displayedMonthSpendingTypeTotal === 0
+                        ? 0
+                        : (displayedMonthDiscretionaryExpenseTotal + displayedMonthGoalTotal) / displayedMonthSpendingTypeTotal,
+                    )} discretionary
+                  </small>
+                </span>
                 <strong className="expense-amount">{formatExpenseCurrency(displayedMonthExpenseTotal)}</strong>
+              </div>
+              <div>
+                <span>Goals</span>
+                <strong className="goal-amount">{formatExpenseCurrency(displayedMonthGoalTotal)}</strong>
               </div>
               <div>
                 <span>Net Available</span>
                 <strong>{formatCurrency(displayedMonthNetTotal)}</strong>
               </div>
-              <div>
-                <span>Essential Spending</span>
-                <strong className="expense-amount">{formatExpenseCurrency(displayedMonthEssentialExpenseTotal)}</strong>
-              </div>
-              <div>
-                <span>Discretionary Spending</span>
-                <strong className="expense-amount">{formatExpenseCurrency(displayedMonthDiscretionaryExpenseTotal)}</strong>
-              </div>
             </div>
           </article>
 
-          <article className="snapshot-card">
-            <h3>Starter Categories</h3>
-            <div className="budget-list">
-              {starterBudgets.map((budget) => (
-                <article className="budget-card" key={budget.id}>
-                  <div>
-                    <h3>{budget.name}</h3>
-                    <p>
-                      ${budget.spent} planned of ${budget.limit}
-                    </p>
-                  </div>
-                  <progress value={budget.spent} max={budget.limit}>
-                    {Math.round((budget.spent / budget.limit) * 100)}%
-                  </progress>
-                </article>
+        </section>
+
+        <section className="savings-panel" aria-label="Discretionary savings ideas">
+          <div>
+            <p className="eyebrow">Budget Costs</p>
+            <h3>
+              You could save {formatCurrency(displayedMonthDiscretionaryExpenseTotal)} by tightening up spending in these areas
+            </h3>
+          </div>
+
+          {discretionarySavingsItems.length === 0 ? (
+            <p className="empty-state">No discretionary spending categories in this month yet.</p>
+          ) : (
+            <div className="savings-list">
+              {discretionarySavingsItems.map((item) => (
+                <span key={item.name}>
+                  {item.name}
+                  <strong>{formatExpenseCurrency(item.amount)}</strong>
+                </span>
               ))}
             </div>
-          </article>
+          )}
         </section>
 
         <section className="goals-panel" aria-labelledby="goals-heading">
@@ -2421,30 +2869,112 @@ function App() {
               />
             </label>
 
-            <button type="submit">Add Goal</button>
+            <label>
+              {budgetGoalForm.contributionFrequency === 'one_time'
+                ? 'One-time payment amount'
+                : 'Planned payment'}
+              <input
+                min="0"
+                name="contributionAmount"
+                onChange={handleBudgetGoalChange}
+                placeholder="20"
+                step="0.01"
+                type="number"
+                value={budgetGoalForm.contributionAmount}
+              />
+            </label>
+
+            <label>
+              Payment frequency
+              <select
+                name="contributionFrequency"
+                onChange={handleBudgetGoalChange}
+                value={budgetGoalForm.contributionFrequency}
+              >
+                {frequencyOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              {budgetGoalForm.contributionFrequency === 'one_time'
+                ? 'Payment date'
+                : 'First payment date'}
+              <input
+                min={formatDateInput(today)}
+                name="firstContributionDate"
+                onChange={handleBudgetGoalChange}
+                required
+                type="date"
+                value={budgetGoalForm.firstContributionDate}
+              />
+            </label>
+
+            <button type="submit">{editingGoalId ? 'Update Goal' : 'Add Goal'}</button>
+            {editingGoalId && (
+              <button type="button" className="secondary-button" onClick={resetGoalEditor}>
+                Cancel Edit
+              </button>
+            )}
           </form>
 
           <div className="goal-list">
             {budgetGoals.map((goal) => {
               const currentAmount = Number(goal.currentAmount || 0);
               const remainingAmount = Math.max(Number(goal.targetAmount) - currentAmount, 0);
-              const estimatedDate = estimateGoalDate(remainingAmount, currentMonthNetTotal, today);
+              const estimatedDate = estimateGoalDateFromPlan(goal, today);
               const targetDate = parseLocalDate(goal.targetDate);
               const canMeetGoal = estimatedDate && estimatedDate <= targetDate;
               const progress = Math.min(100, (currentAmount / Number(goal.targetAmount)) * 100);
+              const isPaidOff = remainingAmount <= 0;
 
               return (
-                <article className="goal-card" key={goal.id}>
-                  <div>
-                    <h3>{goal.name}</h3>
-                    <p>{formatCurrency(remainingAmount)} left of {formatCurrency(goal.targetAmount)} by {formatLongDate(targetDate)}</p>
+                <article className={`goal-card ${isPaidOff ? 'is-paid-off' : ''}`} key={goal.id}>
+                  <div className="goal-card-main">
+                    <div className="goal-card-title">
+                      <h3>{goal.name}</h3>
+                      {isPaidOff && <span className="paid-off-badge">Paid off 🎉</span>}
+                    </div>
+                    <p>
+                      {formatCurrency(remainingAmount)} left of {formatCurrency(goal.targetAmount)} by {formatLongDate(targetDate)}
+                    </p>
+                    <p>
+                      Plan: {formatCurrency(Number(goal.contributionAmount || 0))} {getFrequencyLabel(goal.contributionFrequency).toLowerCase()}
+                    </p>
                     <progress value={progress} max="100">
                       {Math.round(progress)}%
                     </progress>
+                    <details className="payment-history">
+                      <summary>Payments made ({(goal.payments || []).length})</summary>
+                      {(goal.payments || []).length === 0 ? (
+                        <p>No goal payments confirmed yet.</p>
+                      ) : (
+                        (goal.payments || []).map((payment) => (
+                          <div className="payment-history-row" key={payment.id}>
+                            <span>{formatLongDate(parseLocalDate(payment.date))}</span>
+                            <strong>{formatSignedCurrency(payment.amount)}</strong>
+                          </div>
+                        ))
+                      )}
+                    </details>
                   </div>
                   <div className={canMeetGoal ? 'goal-status is-on-track' : 'goal-status'}>
-                    <span>{estimatedDate ? 'Could be met by' : 'Needs more net income'}</span>
-                    <strong>{estimatedDate ? formatLongDate(estimatedDate) : 'Not projected yet'}</strong>
+                    <span>{isPaidOff ? 'Finished' : estimatedDate ? 'Could be met by' : 'Needs payment plan'}</span>
+                    <strong>{isPaidOff ? '🎉' : estimatedDate ? formatLongDate(estimatedDate) : 'Not projected yet'}</strong>
+                    {canAllocateGoalNet && !isPaidOff && (
+                      <button type="button" className="secondary-button" onClick={() => handleAllocateGoalNet(goal)}>
+                        Allocate {allocationLabel} net
+                      </button>
+                    )}
+                    <button type="button" className="secondary-button" onClick={() => handleEditGoal(goal)}>
+                      Edit
+                    </button>
+                    <button type="button" className="secondary-button" onClick={() => handleDeleteGoal(goal)}>
+                      Delete
+                    </button>
                   </div>
                 </article>
               );

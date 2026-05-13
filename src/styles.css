@@ -367,6 +367,10 @@ button:disabled {
   margin-top: 0.45rem;
 }
 
+.summary-grid small.goal-amount {
+  color: #a16207;
+}
+
 .workspace-grid {
   align-items: start;
   display: grid;
@@ -433,6 +437,16 @@ button:disabled {
   padding: 1rem;
 }
 
+.chart-period-select {
+  background: #edf3ef;
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  color: var(--copy);
+  font-weight: 700;
+  min-height: 2.4rem;
+  padding: 0.5rem 0.7rem;
+}
+
 .chart-body {
   align-items: center;
   display: grid;
@@ -478,6 +492,57 @@ button:disabled {
   line-height: 1.2;
 }
 
+.expense-pie-shell {
+  aspect-ratio: 1;
+  border-radius: 999px;
+  display: grid;
+  margin: 0 auto;
+  max-width: 220px;
+  padding: 0.75rem;
+  width: 100%;
+}
+
+.expense-inner-pie {
+  margin: 0;
+  max-width: none;
+}
+
+.chart-pie-stack {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.expense-ring-legend {
+  color: #64748b;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  font-weight: 800;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.expense-ring-legend span {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.expense-ring-legend i {
+  border-radius: 999px;
+  display: inline-block;
+  height: 0.5rem;
+  width: 0.5rem;
+}
+
+.essential-dot {
+  background: #93c5fd;
+}
+
+.discretionary-dot {
+  background: #3b82f6;
+}
+
 .chart-legend {
   display: grid;
   gap: 0.75rem;
@@ -488,6 +553,17 @@ button:disabled {
   display: grid;
   gap: 0.75rem;
   grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.legend-row strong {
+  display: grid;
+  gap: 0.1rem;
+  justify-items: end;
+}
+
+.legend-row strong small {
+  color: var(--muted);
+  font-size: 0.72rem;
 }
 
 .legend-dot {
@@ -798,7 +874,7 @@ button:disabled {
   border: 1px solid var(--card-border);
   color: var(--muted);
   font-size: 0.64rem;
-  min-height: 7.2rem;
+  min-height: 8.4rem;
   padding: 0.25rem 0.15rem;
   writing-mode: vertical-rl;
 }
@@ -813,7 +889,7 @@ button:disabled {
   background: #f8fafc;
   border: 1px solid var(--card-border);
   border-radius: 6px;
-  min-height: 7.2rem;
+  min-height: 8.4rem;
   overflow: hidden;
   padding: 0.45rem;
   text-align: left;
@@ -934,6 +1010,26 @@ button:disabled {
   background: #fbfcfb;
 }
 
+.net-detail-card {
+  background: #f8faf9;
+  grid-column: 1 / -1;
+}
+
+.net-detail-total {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.net-detail-total strong {
+  color: var(--copy);
+  font-size: 1.8rem;
+}
+
+.net-detail-total small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .day-detail-item {
   align-items: center;
   display: flex;
@@ -965,7 +1061,7 @@ button:disabled {
 .snapshot-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: 1fr;
 }
 
 .snapshot-chart-card,
@@ -981,12 +1077,12 @@ button:disabled {
   align-items: center;
   display: grid;
   gap: 1rem;
-  grid-template-columns: minmax(220px, 0.95fr) minmax(0, 1fr);
+  grid-template-columns: minmax(360px, 1.2fr) minmax(0, 1fr);
 }
 
 .snapshot-pie-grid {
   display: grid;
-  gap: 0.75rem;
+  gap: 1rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -999,7 +1095,13 @@ button:disabled {
 }
 
 .snapshot-pie {
-  max-width: 150px;
+  max-width: 190px;
+}
+
+.snapshot-pie .pie-chart-center strong {
+  font-size: 1rem;
+  max-width: 7rem;
+  overflow-wrap: anywhere;
 }
 
 .snapshot-lines {
@@ -1022,6 +1124,18 @@ button:disabled {
   color: var(--muted);
 }
 
+.snapshot-lines span {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.snapshot-lines small {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
 .income-amount {
   color: var(--accent);
 }
@@ -1030,8 +1144,48 @@ button:disabled {
   color: #b91c1c;
 }
 
+.goal-amount {
+  color: #a16207;
+}
+
 .goals-panel {
   margin-top: 1rem;
+}
+
+.savings-panel {
+  background: #fbfcfb;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.savings-panel h3 {
+  margin: 0.2rem 0 0;
+}
+
+.savings-list {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.savings-list span {
+  align-items: center;
+  background: #fff7f7;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #334155;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.75rem;
+}
+
+.savings-list strong {
+  color: #b91c1c;
 }
 
 .goal-form {
@@ -1047,7 +1201,8 @@ button:disabled {
   font-weight: 700;
 }
 
-.goal-form input {
+.goal-form input,
+.goal-form select {
   border: 1px solid #c7d3df;
   border-radius: 6px;
   min-height: 2.75rem;
@@ -1055,7 +1210,8 @@ button:disabled {
   width: 100%;
 }
 
-.goal-form input:focus {
+.goal-form input:focus,
+.goal-form select:focus {
   border-color: var(--accent);
   outline: 3px solid rgb(19 111 99 / 0.14);
 }
@@ -1066,6 +1222,11 @@ button:disabled {
   color: #ffffff;
 }
 
+.goal-form .secondary-button {
+  background: #ebf0ed;
+  color: var(--copy);
+}
+
 .goal-list {
   display: grid;
   gap: 0.75rem;
@@ -1073,7 +1234,7 @@ button:disabled {
 }
 
 .goal-card {
-  align-items: center;
+  align-items: stretch;
   border: 1px solid var(--card-border);
   border-radius: 8px;
   display: flex;
@@ -1082,16 +1243,68 @@ button:disabled {
   padding: 1rem;
 }
 
+.goal-card.is-paid-off {
+  background: #fffbeb;
+  border-color: #facc15;
+}
+
+.goal-card-main {
+  display: grid;
+  flex: 1;
+  gap: 0.45rem;
+}
+
+.goal-card-title {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.paid-off-badge {
+  background: #fef3c7;
+  border: 1px solid #facc15;
+  border-radius: 999px;
+  color: #854d0e;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0.2rem 0.5rem;
+}
+
+.payment-history {
+  background: #f8faf9;
+  border: 1px solid #e5ece7;
+  border-radius: 8px;
+  padding: 0.65rem;
+}
+
+.payment-history summary {
+  color: #334155;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.payment-history-row {
+  align-items: center;
+  border-top: 1px solid #e5ece7;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
 .goal-card h3,
 .snapshot-card h3 {
   margin: 0;
 }
 
 .goal-status {
-  background: #fff7f7;
-  border: 1px solid #fecaca;
+  align-content: start;
+  align-self: start;
+  background: #fffbeb;
+  border: 1px solid #facc15;
   border-radius: 8px;
-  color: #991b1b;
+  color: #854d0e;
   display: grid;
   gap: 0.25rem;
   min-width: 180px;
@@ -1099,10 +1312,18 @@ button:disabled {
   text-align: right;
 }
 
+.goal-status button {
+  background: #ebf0ed;
+  color: var(--copy);
+  justify-self: end;
+  min-height: 2.25rem;
+  width: auto;
+}
+
 .goal-status.is-on-track {
-  background: #f3faf7;
-  border-color: #b7e1d4;
-  color: var(--accent);
+  background: #fffbeb;
+  border-color: #facc15;
+  color: #854d0e;
 }
 
 .goal-status span {
@@ -1201,12 +1422,12 @@ progress {
   }
 
   .calendar-day {
-    min-height: 5.5rem;
+    min-height: 7rem;
     padding: 0.3rem;
   }
 
   .week-select-button {
-    min-height: 5.5rem;
+    min-height: 7rem;
   }
 
   .calendar-day p {
