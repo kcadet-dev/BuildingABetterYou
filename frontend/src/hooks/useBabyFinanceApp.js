@@ -1,736 +1,96 @@
-import { useEffect, useMemo, useState } from 'react';
 import {
   apiBaseUrl,
   addMonths,
-  authStorageKey,
-  buildBreakdown,
-  buildCalendarDays,
-  buildCalendarWeeks,
-  buildDiscretionarySavingsItems,
-  buildExpenseBreakdown,
-  buildPieGradient,
-  buildSpendingTypeSnapshotItems,
   createDefaultBudgetForm,
   createDefaultExpenseForm,
   createDefaultGoalForm,
   createDefaultIncomeForm,
   emptyAuthForm,
   expenseCategoryOptions,
-  formatChartTooltip,
   formatDateInput,
-  formatLongDate,
-  getConfirmedExpenseStorageKey,
-  getConfirmedIncomeStorageKey,
   getExpensePaymentKey,
-  getGoalCalendarItems,
   getGoalPaymentKey,
-  getGoalsStorageKey,
   getIncomePaymentKey,
-  getMonthStart,
-  getOccurrencesForExpenseSource,
-  getOccurrencesForIncomeSource,
-  getUnconfirmedExpenseStorageKey,
-  getUnconfirmedIncomeStorageKey,
-  getWorkWeekRange,
-  isDateInRange,
-  isGoalCashEvent,
-  isGoalPaidOff,
   isPaymentConfirmed,
-  isSameDay,
   normalizeBudgetCategory,
   normalizeExpenseSource,
   normalizeIncomeSource,
-  parseLocalDate,
-  readStoredAuthSession,
-  readStoredGoals,
-  readStoredList,
 } from '../lib/budgetHelpers.js';
+import { useBudgetAppState } from './useBudgetAppState.js';
+import { useBudgetDerivedData } from './useBudgetDerivedData.js';
+import { useBudgetEffects } from './useBudgetEffects.js';
 
 export function useBabyFinanceApp() {
-  const today = useMemo(() => new Date(), []);
-  const currentMonthStart = useMemo(() => new Date(today.getFullYear(), today.getMonth(), 1), [today]);
-  const currentMonthEnd = useMemo(() => new Date(today.getFullYear(), today.getMonth() + 1, 0), [today]);
-  const yearEnd = useMemo(() => new Date(today.getFullYear(), 11, 31), [today]);
-  const finalMonthStart = useMemo(() => new Date(today.getFullYear(), 11, 1), [today]);
-  const workWeek = useMemo(() => getWorkWeekRange(today), [today]);
+  const state = useBudgetAppState();
+  const derived = useBudgetDerivedData(state);
 
-  const [authMode, setAuthMode] = useState('login');
-  const [budgetCategoryForm, setBudgetCategoryForm] = useState(createDefaultBudgetForm());
-  const [budgetCategories, setBudgetCategories] = useState([]);
-  const [formData, setFormData] = useState(emptyAuthForm);
-  const [budgetGoalForm, setBudgetGoalForm] = useState(createDefaultGoalForm(today));
-  const [budgetGoals, setBudgetGoals] = useState([]);
-  const [confirmedExpensePayments, setConfirmedExpensePayments] = useState([]);
-  const [confirmedIncomePayments, setConfirmedIncomePayments] = useState([]);
-  const [editingGoalId, setEditingGoalId] = useState(null);
-  const [expenseForm, setExpenseForm] = useState(createDefaultExpenseForm(today));
-  const [expenseSources, setExpenseSources] = useState([]);
-  const [incomeForm, setIncomeForm] = useState(createDefaultIncomeForm(today));
-  const [incomeSources, setIncomeSources] = useState([]);
-  const [selectedMonth, setSelectedMonth] = useState(currentMonthStart);
-  const [selectedDay, setSelectedDay] = useState(null);
-  const [selectedMonthRange, setSelectedMonthRange] = useState(null);
-  const [selectedWeekRange, setSelectedWeekRange] = useState(null);
-  const [editingExpenseSourceId, setEditingExpenseSourceId] = useState(null);
-  const [editingIncomeSourceId, setEditingIncomeSourceId] = useState(null);
-  const [activePlannerTab, setActivePlannerTab] = useState('income');
-  const [activePage, setActivePage] = useState('planner');
-  const [expenseChartPeriod, setExpenseChartPeriod] = useState('monthly');
-  const [incomeChartPeriod, setIncomeChartPeriod] = useState('monthly');
-  const [netSnapshotPeriod, setNetSnapshotPeriod] = useState('monthly');
-  const [isExpenseHistoryOpen, setIsExpenseHistoryOpen] = useState(false);
-  const [isIncomeHistoryOpen, setIsIncomeHistoryOpen] = useState(false);
-  const [user, setUser] = useState(() => readStoredAuthSession());
-  const [message, setMessage] = useState('');
-  const [budgetMessage, setBudgetMessage] = useState('');
-  const [expenseMessage, setExpenseMessage] = useState('');
-  const [goalMessage, setGoalMessage] = useState('');
-  const [incomeMessage, setIncomeMessage] = useState('');
-  const [profileForm, setProfileForm] = useState({
-    dateOfBirth: '',
-    email: '',
-    firstName: '',
-    lastName: '',
-  });
-  const [profileMessage, setProfileMessage] = useState('');
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSavingExpense, setIsSavingExpense] = useState(false);
-  const [isSavingIncome, setIsSavingIncome] = useState(false);
-  const [isSavingBudgetLimit, setIsSavingBudgetLimit] = useState(false);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [hasAppliedEstimate, setHasAppliedEstimate] = useState(false);
-  const [unconfirmedExpensePayments, setUnconfirmedExpensePayments] = useState([]);
-  const [unconfirmedIncomePayments, setUnconfirmedIncomePayments] = useState([]);
+  useBudgetEffects(state, derived);
 
-  const accountStartMonth = useMemo(
-    () => (user?.createdAt ? getMonthStart(user.createdAt) : currentMonthStart),
-    [currentMonthStart, user],
-  );
+  const {
+    authMode,
+    budgetCategoryForm,
+    budgetGoalForm,
+    currentMonthStart,
+    confirmedExpensePayments,
+    confirmedIncomePayments,
+    editingExpenseSourceId,
+    editingGoalId,
+    editingIncomeSourceId,
+    expenseForm,
+    formData,
+    incomeForm,
+    profileForm,
+    selectedMonth,
+    selectedMonthRange,
+    selectedWeekRange,
+    setActivePage,
+    setBudgetCategories,
+    setBudgetCategoryForm,
+    setBudgetGoalForm,
+    setBudgetGoals,
+    setBudgetMessage,
+    setConfirmedExpensePayments,
+    setConfirmedIncomePayments,
+    setEditingExpenseSourceId,
+    setEditingGoalId,
+    setEditingIncomeSourceId,
+    setExpenseForm,
+    setExpenseMessage,
+    setExpenseSources,
+    setFormData,
+    setGoalMessage,
+    setHasAppliedEstimate,
+    setIncomeForm,
+    setIncomeMessage,
+    setIncomeSources,
+    setIsEditingProfile,
+    setIsSavingBudgetLimit,
+    setIsSavingExpense,
+    setIsSavingIncome,
+    setIsSavingProfile,
+    setIsSubmitting,
+    setMessage,
+    setProfileForm,
+    setProfileMessage,
+    setSelectedDay,
+    setSelectedMonth,
+    setSelectedMonthRange,
+    setSelectedWeekRange,
+    setUnconfirmedExpensePayments,
+    setUnconfirmedIncomePayments,
+    setUser,
+    today,
+    unconfirmedExpensePayments,
+    unconfirmedIncomePayments,
+    user,
+  } = state;
 
-  const displayedMonthEnd = useMemo(
-    () => new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0),
-    [selectedMonth],
-  );
-  const displayedMonthLabel = selectedMonth.toLocaleDateString('en-US', {
-    month: 'long',
-    year: 'numeric',
-  });
-  const currentMonthLabel = today.toLocaleDateString('en-US', {
-    month: 'long',
-    year: 'numeric',
-  });
-  const canGoToPreviousMonth = selectedMonth > accountStartMonth;
-  const canGoToNextMonth = selectedMonth < finalMonthStart;
-
-  const currentMonthIncome = useMemo(
-    () =>
-      incomeSources.flatMap((incomeSource) =>
-        getOccurrencesForIncomeSource(incomeSource, today, currentMonthEnd),
-      ),
-    [currentMonthEnd, incomeSources, today],
-  );
-  const currentMonthExpenses = useMemo(
-    () =>
-      expenseSources.flatMap((expenseSource) =>
-        getOccurrencesForExpenseSource(expenseSource, today, currentMonthEnd),
-      ),
-    [currentMonthEnd, expenseSources, today],
-  );
-  const workWeekIncome = useMemo(
-    () =>
-      incomeSources.flatMap((incomeSource) =>
-        getOccurrencesForIncomeSource(incomeSource, workWeek.start, workWeek.end),
-      ),
-    [incomeSources, workWeek.end, workWeek.start],
-  );
-  const workWeekExpenses = useMemo(
-    () =>
-      expenseSources.flatMap((expenseSource) =>
-        getOccurrencesForExpenseSource(expenseSource, workWeek.start, workWeek.end),
-      ),
-    [expenseSources, workWeek.end, workWeek.start],
-  );
-  const yearIncome = useMemo(
-    () =>
-      incomeSources.flatMap((incomeSource) =>
-        getOccurrencesForIncomeSource(incomeSource, today, yearEnd),
-      ),
-    [incomeSources, today, yearEnd],
-  );
-  const yearExpenses = useMemo(
-    () =>
-      expenseSources.flatMap((expenseSource) =>
-        getOccurrencesForExpenseSource(expenseSource, today, yearEnd),
-      ),
-    [expenseSources, today, yearEnd],
-  );
-  const displayedMonthIncome = useMemo(
-    () =>
-      incomeSources.flatMap((incomeSource) =>
-        getOccurrencesForIncomeSource(incomeSource, selectedMonth, displayedMonthEnd),
-      ),
-    [displayedMonthEnd, incomeSources, selectedMonth],
-  );
-  const displayedMonthExpenses = useMemo(
-    () =>
-      expenseSources.flatMap((expenseSource) =>
-        getOccurrencesForExpenseSource(expenseSource, selectedMonth, displayedMonthEnd),
-      ),
-    [displayedMonthEnd, expenseSources, selectedMonth],
-  );
-  const selectedDayIncome = useMemo(
-    () =>
-      selectedDay ? displayedMonthIncome.filter((income) => isSameDay(income.date, selectedDay)) : [],
-    [displayedMonthIncome, selectedDay],
-  );
-  const selectedDayExpenses = useMemo(
-    () =>
-      selectedDay ? displayedMonthExpenses.filter((expense) => isSameDay(expense.date, selectedDay)) : [],
-    [displayedMonthExpenses, selectedDay],
-  );
-  const displayedMonthGoals = useMemo(
-    () => getGoalCalendarItems(budgetGoals, selectedMonth, displayedMonthEnd, today),
-    [budgetGoals, displayedMonthEnd, selectedMonth, today],
-  );
-  const selectedDayGoals = useMemo(
-    () => selectedDay ? displayedMonthGoals.filter((goal) => isSameDay(goal.date, selectedDay)) : [],
-    [displayedMonthGoals, selectedDay],
-  );
-  const currentMonthGoals = useMemo(
-    () => getGoalCalendarItems(budgetGoals, today, currentMonthEnd, today),
-    [budgetGoals, currentMonthEnd, today],
-  );
-  const workWeekGoals = useMemo(
-    () => getGoalCalendarItems(budgetGoals, workWeek.start, workWeek.end, today),
-    [budgetGoals, today, workWeek.end, workWeek.start],
-  );
-  const yearGoals = useMemo(
-    () => getGoalCalendarItems(budgetGoals, today, yearEnd, today),
-    [budgetGoals, today, yearEnd],
-  );
-  const workWeekTotal = workWeekIncome.reduce((total, income) => total + income.amount, 0);
-  const workWeekExpenseTotal = workWeekExpenses.reduce((total, expense) => total + expense.amount, 0);
-  const selectedDayTotal = selectedDayIncome.reduce((total, income) => total + income.amount, 0);
-  const selectedDayExpenseTotal = selectedDayExpenses.reduce((total, expense) => total + expense.amount, 0);
-  const currentMonthTotal = currentMonthIncome.reduce((total, income) => total + income.amount, 0);
-  const currentMonthExpenseTotal = currentMonthExpenses.reduce((total, expense) => total + expense.amount, 0);
-  const yearTotal = yearIncome.reduce((total, income) => total + income.amount, 0);
-  const yearExpenseTotal = yearExpenses.reduce((total, expense) => total + expense.amount, 0);
-  const displayedMonthTotal = displayedMonthIncome.reduce((total, income) => total + income.amount, 0);
-  const displayedMonthExpenseTotal = displayedMonthExpenses.reduce((total, expense) => total + expense.amount, 0);
-  const workWeekGoalTotal = workWeekGoals.reduce((total, goal) => total + (isGoalCashEvent(goal) ? goal.amount : 0), 0);
-  const currentMonthGoalTotal = currentMonthGoals.reduce((total, goal) => total + (isGoalCashEvent(goal) ? goal.amount : 0), 0);
-  const yearGoalTotal = yearGoals.reduce((total, goal) => total + (isGoalCashEvent(goal) ? goal.amount : 0), 0);
-  const displayedMonthGoalTotal = displayedMonthGoals.reduce((total, goal) => total + (isGoalCashEvent(goal) ? goal.amount : 0), 0);
-  const workWeekNetTotal = workWeekTotal - workWeekExpenseTotal - workWeekGoalTotal;
-  const currentMonthNetTotal = currentMonthTotal - currentMonthExpenseTotal - currentMonthGoalTotal;
-  const yearNetTotal = yearTotal - yearExpenseTotal - yearGoalTotal;
-  const displayedMonthNetTotal = displayedMonthTotal - displayedMonthExpenseTotal - displayedMonthGoalTotal;
-  const getActualIncomeTotal = (incomeItems) =>
-    incomeItems
-      .filter((income) =>
-        isPaymentConfirmed(getIncomePaymentKey(income), income.date, confirmedIncomePayments, unconfirmedIncomePayments, today),
-      )
-      .reduce((total, income) => total + income.amount, 0);
-  const getActualExpenseTotal = (expenseItems) =>
-    expenseItems
-      .filter((expense) =>
-        isPaymentConfirmed(getExpensePaymentKey(expense), expense.date, confirmedExpensePayments, unconfirmedExpensePayments, today),
-      )
-      .reduce((total, expense) => total + expense.amount, 0);
-  const getActualGoalTotal = (goalItems) =>
-    goalItems
-      .filter((goal) => goal.type === 'payment')
-      .reduce((total, goal) => total + goal.amount, 0);
-  const workWeekActualIncomeTotal = getActualIncomeTotal(workWeekIncome);
-  const workWeekActualExpenseTotal = getActualExpenseTotal(workWeekExpenses);
-  const workWeekActualGoalTotal = getActualGoalTotal(workWeekGoals);
-  const workWeekActualNetTotal = workWeekActualIncomeTotal - workWeekActualExpenseTotal - workWeekActualGoalTotal;
-  const currentMonthActualIncomeTotal = getActualIncomeTotal(currentMonthIncome);
-  const currentMonthActualExpenseTotal = getActualExpenseTotal(currentMonthExpenses);
-  const currentMonthActualGoalTotal = getActualGoalTotal(currentMonthGoals);
-  const currentMonthActualNetTotal = currentMonthActualIncomeTotal - currentMonthActualExpenseTotal - currentMonthActualGoalTotal;
-  const yearActualIncomeTotal = getActualIncomeTotal(yearIncome);
-  const yearActualExpenseTotal = getActualExpenseTotal(yearExpenses);
-  const yearActualGoalTotal = getActualGoalTotal(yearGoals);
-  const yearActualNetTotal = yearActualIncomeTotal - yearActualExpenseTotal - yearActualGoalTotal;
-  const displayedMonthActualIncomeTotal = getActualIncomeTotal(displayedMonthIncome);
-  const displayedMonthActualExpenseTotal = getActualExpenseTotal(displayedMonthExpenses);
-  const displayedMonthActualGoalTotal = getActualGoalTotal(displayedMonthGoals);
-  const displayedMonthActualNetTotal = displayedMonthActualIncomeTotal - displayedMonthActualExpenseTotal - displayedMonthActualGoalTotal;
-  const currentMonthAvailableToBudget = currentMonthTotal - currentMonthExpenseTotal - currentMonthGoalTotal;
-  const displayedMonthPriorityExpenseTotal = displayedMonthExpenses
-    .filter((expense) => expense.spendingType === 'priority')
-    .reduce((total, expense) => total + expense.amount, 0);
-  const displayedMonthEssentialExpenseTotal = displayedMonthExpenses
-    .filter((expense) => expense.spendingType === 'essential')
-    .reduce((total, expense) => total + expense.amount, 0);
-  const displayedMonthDiscretionaryExpenseTotal = displayedMonthExpenses
-    .filter((expense) => expense.spendingType === 'discretionary')
-    .reduce((total, expense) => total + expense.amount, 0);
-  const displayedMonthSpendingTypeTotal = displayedMonthExpenseTotal + displayedMonthGoalTotal;
-  const discretionarySavingsItems = useMemo(
-    () => buildDiscretionarySavingsItems(displayedMonthExpenses),
-    [displayedMonthExpenses],
-  );
-  const displayedMonthExpenseByCategory = useMemo(() => {
-    const totals = new Map();
-
-    displayedMonthExpenses.forEach((expense) => {
-      totals.set(expense.category, (totals.get(expense.category) || 0) + expense.amount);
-    });
-
-    return totals;
-  }, [displayedMonthExpenses]);
-  const budgetCategoryOptions = useMemo(() => {
-    const categoryNames = new Set(
-      expenseCategoryOptions
-        .filter((option) => option.value !== 'custom')
-        .map((option) => option.value),
-    );
-
-    expenseSources.forEach((expenseSource) => {
-      if (expenseSource.category) {
-        categoryNames.add(expenseSource.category);
-      }
-    });
-
-    budgetCategories.forEach((category) => {
-      if (category.name) {
-        categoryNames.add(category.name);
-      }
-    });
-
-    return Array.from(categoryNames).sort((firstName, secondName) =>
-      firstName.localeCompare(secondName),
-    );
-  }, [budgetCategories, expenseSources]);
-  const budgetCategorySummaries = budgetCategories.map((category) => {
-    const spent = displayedMonthExpenseByCategory.get(category.name) || 0;
-    const limit = Number(category.limit);
-
-    return {
-      ...category,
-      isOverBudget: spent > limit,
-      limit,
-      remaining: limit - spent,
-      spent,
-    };
-  });
-  const overBudgetCategories = budgetCategorySummaries.filter((category) => category.isOverBudget);
-  const activeGoals = budgetGoals.filter((goal) => !isGoalPaidOff(goal));
-  const completedGoals = budgetGoals.filter(isGoalPaidOff);
-  const nextPayday = currentMonthIncome[0] || yearIncome[0] || null;
-  const nextBillDue = currentMonthExpenses[0] || yearExpenses[0] || null;
-  const closestActiveGoal = activeGoals
-    .sort((firstGoal, secondGoal) => parseLocalDate(firstGoal.targetDate) - parseLocalDate(secondGoal.targetDate))[0] || null;
-  const calendarDays = useMemo(
-    () => buildCalendarDays(selectedMonth, displayedMonthIncome, displayedMonthExpenses, displayedMonthGoals, today),
-    [displayedMonthExpenses, displayedMonthGoals, displayedMonthIncome, selectedMonth, today],
-  );
-  const calendarWeeks = useMemo(() => buildCalendarWeeks(calendarDays), [calendarDays]);
-  const selectedWeekIncome = useMemo(
-    () =>
-      selectedWeekRange
-        ? displayedMonthIncome.filter((income) =>
-            isDateInRange(income.date, selectedWeekRange.start, selectedWeekRange.end),
-          )
-        : [],
-    [displayedMonthIncome, selectedWeekRange],
-  );
-  const selectedWeekExpenses = useMemo(
-    () =>
-      selectedWeekRange
-        ? displayedMonthExpenses.filter((expense) =>
-            isDateInRange(expense.date, selectedWeekRange.start, selectedWeekRange.end),
-          )
-        : [],
-    [displayedMonthExpenses, selectedWeekRange],
-  );
-  const selectedWeekGoals = useMemo(
-    () =>
-      selectedWeekRange
-        ? displayedMonthGoals.filter((goal) =>
-            isDateInRange(goal.date, selectedWeekRange.start, selectedWeekRange.end),
-          )
-        : [],
-    [displayedMonthGoals, selectedWeekRange],
-  );
-  const detailIncome = selectedMonthRange
-    ? displayedMonthIncome
-    : selectedWeekRange
-      ? selectedWeekIncome
-      : selectedDayIncome;
-  const detailExpenses = selectedMonthRange
-    ? displayedMonthExpenses
-    : selectedWeekRange
-      ? selectedWeekExpenses
-      : selectedDayExpenses;
-  const detailGoals = selectedMonthRange
-    ? displayedMonthGoals
-    : selectedWeekRange
-      ? selectedWeekGoals
-      : selectedDayGoals;
-  const detailSelectionLabel = selectedMonthRange
-    ? displayedMonthLabel
-    : selectedWeekRange
-    ? `${formatLongDate(selectedWeekRange.start)} to ${formatLongDate(selectedWeekRange.end)}`
-    : selectedDay
-      ? formatLongDate(selectedDay)
-      : 'No Day Selected';
-  const hasDetailSelection = Boolean(selectedDay || selectedWeekRange || selectedMonthRange);
-  const detailGoalTotal = detailGoals.reduce((total, goal) => total + (isGoalCashEvent(goal) ? goal.amount : 0), 0);
-  const detailNetTotal = detailIncome.reduce((total, income) => total + income.amount, 0)
-    - detailExpenses.reduce((total, expense) => total + expense.amount, 0)
-    - detailGoalTotal;
-  const detailActualIncomeTotal = detailIncome
-    .filter((income) =>
-      isPaymentConfirmed(getIncomePaymentKey(income), income.date, confirmedIncomePayments, unconfirmedIncomePayments, today),
-    )
-    .reduce((total, income) => total + income.amount, 0);
-  const detailActualExpenseTotal = detailExpenses
-    .filter((expense) =>
-      isPaymentConfirmed(getExpensePaymentKey(expense), expense.date, confirmedExpensePayments, unconfirmedExpensePayments, today),
-    )
-    .reduce((total, expense) => total + expense.amount, 0);
-  const detailActualGoalTotal = detailGoals
-    .filter((goal) => goal.type === 'payment')
-    .reduce((total, goal) => total + goal.amount, 0);
-  const detailActualNetTotal = detailActualIncomeTotal - detailActualExpenseTotal - detailActualGoalTotal;
-  const canAllocateGoalNet = Boolean(selectedWeekRange || selectedMonthRange) && detailNetTotal > 0;
-  const allocationLabel = selectedMonthRange ? 'month' : 'week';
-  const chartIncome = incomeChartPeriod === 'weekly'
-    ? workWeekIncome
-    : incomeChartPeriod === 'yearly'
-      ? yearIncome
-      : displayedMonthIncome;
-  const chartExpenses = expenseChartPeriod === 'weekly'
-    ? workWeekExpenses
-    : expenseChartPeriod === 'yearly'
-      ? yearExpenses
-      : displayedMonthExpenses;
-  const chartGoalPayments = expenseChartPeriod === 'weekly'
-    ? workWeekGoals
-    : expenseChartPeriod === 'yearly'
-      ? yearGoals
-      : displayedMonthGoals;
-  const chartExpenseItems = useMemo(
-    () => [
-      ...chartExpenses,
-      ...chartGoalPayments
-        .filter(isGoalCashEvent)
-        .map((goal) => ({
-          amount: goal.amount,
-          category: 'Goals',
-          date: goal.date,
-          name: goal.name,
-          spendingType: 'goal',
-          type: goal.type,
-        })),
-    ],
-    [chartExpenses, chartGoalPayments],
-  );
-  const chartIncomeTotal = chartIncome.reduce((total, income) => total + income.amount, 0);
-  const chartExpenseTotal = chartExpenseItems.reduce((total, expense) => total + expense.amount, 0);
-  const chartConfirmedIncomeTotal = chartIncome
-    .filter((income) =>
-      isPaymentConfirmed(getIncomePaymentKey(income), income.date, confirmedIncomePayments, unconfirmedIncomePayments, today),
-    )
-    .reduce((total, income) => total + income.amount, 0);
-  const chartConfirmedExpenseTotal = chartExpenseItems
-    .filter((expense) =>
-      expense.spendingType === 'goal'
-        ? expense.type === 'payment'
-        : isPaymentConfirmed(getExpensePaymentKey(expense), expense.date, confirmedExpensePayments, unconfirmedExpensePayments, today),
-    )
-    .reduce((total, expense) => total + expense.amount, 0);
-  const chartPriorityExpenseTotal = chartExpenses
-    .filter((expense) => expense.spendingType === 'priority')
-    .reduce((total, expense) => total + expense.amount, 0);
-  const chartEssentialExpenseTotal = chartExpenses
-    .filter((expense) => expense.spendingType === 'essential')
-    .reduce((total, expense) => total + expense.amount, 0);
-  const chartDiscretionaryExpenseTotal = chartExpenseItems
-    .filter((expense) => expense.spendingType === 'discretionary' || expense.spendingType === 'goal')
-    .reduce((total, expense) => total + expense.amount, 0);
-  const chartPeriodLabels = {
-    monthly: displayedMonthLabel,
-    weekly: `${formatLongDate(workWeek.start)} to ${formatLongDate(workWeek.end)}`,
-    yearly: `through ${formatLongDate(yearEnd)}`,
-  };
-  const netSnapshotLabel = netSnapshotPeriod === 'weekly'
-    ? `${formatLongDate(workWeek.start)} to ${formatLongDate(workWeek.end)}`
-    : netSnapshotPeriod === 'yearly'
-      ? `through ${formatLongDate(yearEnd)}`
-      : displayedMonthLabel;
-  const netSnapshotPlannedTotal = netSnapshotPeriod === 'weekly'
-    ? workWeekNetTotal
-    : netSnapshotPeriod === 'yearly'
-      ? yearNetTotal
-      : displayedMonthNetTotal;
-  const netSnapshotActualTotal = netSnapshotPeriod === 'weekly'
-    ? workWeekActualNetTotal
-    : netSnapshotPeriod === 'yearly'
-      ? yearActualNetTotal
-      : displayedMonthActualNetTotal;
-  const selectedIncomeBreakdown = useMemo(
-    () => buildBreakdown(chartIncome),
-    [chartIncome],
-  );
-  const selectedExpenseBreakdown = useMemo(
-    () => buildExpenseBreakdown(chartExpenseItems),
-    [chartExpenseItems],
-  );
-  const selectedMonthPie = useMemo(
-    () => buildPieGradient(selectedIncomeBreakdown),
-    [selectedIncomeBreakdown],
-  );
-  const expensePie = useMemo(
-    () => buildPieGradient(selectedExpenseBreakdown, '#edf2f7'),
-    [selectedExpenseBreakdown],
-  );
-  const expenseTypePie = useMemo(
-    () =>
-      buildPieGradient(
-        buildSpendingTypeSnapshotItems(
-          chartPriorityExpenseTotal,
-          chartEssentialExpenseTotal,
-          chartDiscretionaryExpenseTotal,
-        ),
-        '#edf2f7',
-      ),
-    [chartDiscretionaryExpenseTotal, chartEssentialExpenseTotal, chartPriorityExpenseTotal],
-  );
-  const incomePieTooltip = useMemo(
-    () => formatChartTooltip(selectedIncomeBreakdown),
-    [selectedIncomeBreakdown],
-  );
-  const expensePieTooltip = useMemo(
-    () => formatChartTooltip(selectedExpenseBreakdown),
-    [selectedExpenseBreakdown],
-  );
-  const spendingTypeSnapshotItems = useMemo(
-    () =>
-      buildSpendingTypeSnapshotItems(
-        displayedMonthPriorityExpenseTotal,
-        displayedMonthEssentialExpenseTotal,
-        displayedMonthDiscretionaryExpenseTotal + displayedMonthGoalTotal,
-      ),
-    [
-      displayedMonthDiscretionaryExpenseTotal,
-      displayedMonthEssentialExpenseTotal,
-      displayedMonthGoalTotal,
-      displayedMonthPriorityExpenseTotal,
-    ],
-  );
-  const spendingTypeSnapshotPie = useMemo(
-    () => buildPieGradient(spendingTypeSnapshotItems, '#edf2f7'),
-    [spendingTypeSnapshotItems],
-  );
-  const spendingTypeTooltip = useMemo(
-    () => formatChartTooltip(spendingTypeSnapshotItems),
-    [spendingTypeSnapshotItems],
-  );
-
-  const isEstimateVisible = incomeForm.useTaxEstimate;
-  const estimatedGrossPay = !incomeForm.useTaxEstimate
-    ? 0
-    : incomeForm.compensationType === 'salaried'
-      ? Number(incomeForm.grossAmount || 0)
-      : Number(incomeForm.hourlyRate || 0) * Number(incomeForm.hoursPerPeriod || 0);
-  const estimatedNetPay = estimatedGrossPay * (1 - Number(incomeForm.estimatedTaxRate || 0) / 100);
-  const userId = user?.id;
-
-  useEffect(() => {
-    async function loadIncomeSources() {
-      if (!userId) {
-        return;
-      }
-
-      try {
-        const response = await fetch(`${apiBaseUrl}/api/users/${userId}/income-sources`);
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Could not load income sources.');
-        }
-
-        setIncomeSources(data.map(normalizeIncomeSource));
-      } catch (error) {
-        setIncomeMessage(error.message);
-      }
-    }
-
-    loadIncomeSources();
-  }, [userId]);
-
-  useEffect(() => {
-    async function loadExpenseSources() {
-      if (!userId) {
-        return;
-      }
-
-      try {
-        const response = await fetch(`${apiBaseUrl}/api/users/${userId}/expense-sources`);
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Could not load expense sources.');
-        }
-
-        setExpenseSources(data.map(normalizeExpenseSource));
-      } catch (error) {
-        setExpenseMessage(error.message);
-      }
-    }
-
-    loadExpenseSources();
-  }, [userId]);
-
-  useEffect(() => {
-    async function loadBudgetCategories() {
-      if (!userId) {
-        setBudgetCategories([]);
-        return;
-      }
-
-      try {
-        const response = await fetch(`${apiBaseUrl}/api/users/${userId}/budget-categories`);
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Could not load monthly budget limits.');
-        }
-
-        setBudgetCategories(data.map(normalizeBudgetCategory));
-        setBudgetMessage('');
-      } catch (error) {
-        setBudgetMessage(error.message);
-      }
-    }
-
-    loadBudgetCategories();
-  }, [userId]);
-
-  useEffect(() => {
-    async function loadUserProfile() {
-      if (!userId) {
-        return;
-      }
-
-      try {
-        const response = await fetch(`${apiBaseUrl}/api/users/${userId}`);
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Could not load your profile.');
-        }
-
-        setUser((currentUser) => ({
-          ...currentUser,
-          createdAt: data.createdAt,
-          dateOfBirth: data.dateOfBirth,
-          email: data.email,
-          firstName: data.firstName,
-          id: data.id,
-          lastName: data.lastName,
-        }));
-      } catch (error) {
-        setMessage(error.message);
-      }
-    }
-
-    loadUserProfile();
-  }, [userId]);
-
-  useEffect(() => {
-    setBudgetGoals(readStoredGoals(userId));
-    setConfirmedExpensePayments(readStoredList(userId, getConfirmedExpenseStorageKey, []));
-    setConfirmedIncomePayments(readStoredList(userId, getConfirmedIncomeStorageKey, []));
-    setUnconfirmedExpensePayments(readStoredList(userId, getUnconfirmedExpenseStorageKey, []));
-    setUnconfirmedIncomePayments(readStoredList(userId, getUnconfirmedIncomeStorageKey, []));
-  }, [userId]);
-
-  useEffect(() => {
-    if (typeof globalThis === 'undefined' || !globalThis.localStorage) {
-      return;
-    }
-
-    if (!user) {
-      globalThis.localStorage.removeItem(authStorageKey);
-      return;
-    }
-
-    globalThis.localStorage.setItem(
-      authStorageKey,
-      JSON.stringify({
-        provider: 'local-api',
-        user,
-        version: 1,
-      }),
-    );
-  }, [user]);
-
-  useEffect(() => {
-    setProfileForm({
-      dateOfBirth: user?.dateOfBirth ? String(user.dateOfBirth).slice(0, 10) : '',
-      email: user?.email || '',
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
-    });
-  }, [user]);
-
-  useEffect(() => {
-    if (!userId || typeof globalThis === 'undefined' || !globalThis.localStorage) {
-      return;
-    }
-
-    globalThis.localStorage.setItem(getGoalsStorageKey(userId), JSON.stringify(budgetGoals));
-  }, [budgetGoals, userId]);
-
-  useEffect(() => {
-    if (!userId || typeof globalThis === 'undefined' || !globalThis.localStorage) {
-      return;
-    }
-
-    globalThis.localStorage.setItem(getConfirmedIncomeStorageKey(userId), JSON.stringify(confirmedIncomePayments));
-  }, [confirmedIncomePayments, userId]);
-
-  useEffect(() => {
-    if (!userId || typeof globalThis === 'undefined' || !globalThis.localStorage) {
-      return;
-    }
-
-    globalThis.localStorage.setItem(getUnconfirmedIncomeStorageKey(userId), JSON.stringify(unconfirmedIncomePayments));
-  }, [unconfirmedIncomePayments, userId]);
-
-  useEffect(() => {
-    if (!userId || typeof globalThis === 'undefined' || !globalThis.localStorage) {
-      return;
-    }
-
-    globalThis.localStorage.setItem(getConfirmedExpenseStorageKey(userId), JSON.stringify(confirmedExpensePayments));
-  }, [confirmedExpensePayments, userId]);
-
-  useEffect(() => {
-    if (!userId || typeof globalThis === 'undefined' || !globalThis.localStorage) {
-      return;
-    }
-
-    globalThis.localStorage.setItem(getUnconfirmedExpenseStorageKey(userId), JSON.stringify(unconfirmedExpensePayments));
-  }, [unconfirmedExpensePayments, userId]);
-
-  useEffect(() => {
-    if (budgetCategoryOptions.length === 0 || budgetCategoryOptions.includes(budgetCategoryForm.name)) {
-      return;
-    }
-
-    setBudgetCategoryForm((currentForm) => ({
-      ...currentForm,
-      name: budgetCategoryOptions[0],
-    }));
-  }, [budgetCategoryForm.name, budgetCategoryOptions]);
+  const {
+    accountStartMonth,
+    allocationLabel,
+    detailNetTotal,
+    estimatedNetPay,
+  } = derived;
 
   const handleChange = (event) => {
     setFormData((currentFormData) => ({
@@ -1168,8 +528,7 @@ export function useBabyFinanceApp() {
       };
 
       if (event.target.name === 'useTaxEstimate' && !nextValue) {
-        nextIncomeForm.amount =
-          estimatedNetPay > 0 ? estimatedNetPay.toFixed(2) : currentIncomeForm.amount;
+        nextIncomeForm.amount = estimatedNetPay > 0 ? estimatedNetPay.toFixed(2) : currentIncomeForm.amount;
         nextIncomeForm.grossAmount = '';
         nextIncomeForm.hourlyRate = '';
         nextIncomeForm.hoursPerPeriod = '';
@@ -1440,10 +799,7 @@ export function useBabyFinanceApp() {
 
     const payload = {
       amount: expenseForm.amount,
-      category:
-        expenseForm.category === 'custom'
-          ? expenseForm.customCategory.trim()
-          : expenseForm.category,
+      category: expenseForm.category === 'custom' ? expenseForm.customCategory.trim() : expenseForm.category,
       frequency: expenseForm.frequency,
       name: expenseForm.name,
       nextDueDate: expenseForm.nextDueDate,
@@ -1591,7 +947,7 @@ export function useBabyFinanceApp() {
   const navigateMonth = (offset) => {
     const nextMonth = addMonths(selectedMonth, offset);
 
-    if (nextMonth > finalMonthStart) {
+    if (nextMonth > state.finalMonthStart) {
       return;
     }
 
@@ -1614,80 +970,8 @@ export function useBabyFinanceApp() {
   };
 
   return {
-    accountStartMonth,
-    activeGoals,
-    activePage,
-    activePlannerTab,
-    allocationLabel,
-    authMode,
-    budgetCategories,
-    budgetCategoryForm,
-    budgetCategoryOptions,
-    budgetCategorySummaries,
-    budgetGoalForm,
-    budgetGoals,
-    budgetMessage,
-    calendarWeeks,
-    canAllocateGoalNet,
-    canGoToNextMonth,
-    canGoToPreviousMonth,
-    chartConfirmedExpenseTotal,
-    chartConfirmedIncomeTotal,
-    chartDiscretionaryExpenseTotal,
-    chartEssentialExpenseTotal,
-    chartExpenseTotal,
-    chartIncomeTotal,
-    chartPriorityExpenseTotal,
-    chartPeriodLabels,
-    closestActiveGoal,
-    completedGoals,
-    confirmedExpensePayments,
-    confirmedIncomePayments,
-    currentMonthAvailableToBudget,
-    currentMonthActualNetTotal,
-    currentMonthExpenseTotal,
-    currentMonthLabel,
-    currentMonthNetTotal,
-    currentMonthTotal,
-    detailActualExpenseTotal,
-    detailActualGoalTotal,
-    detailActualIncomeTotal,
-    detailActualNetTotal,
-    detailExpenses,
-    detailGoalTotal,
-    detailGoals,
-    detailIncome,
-    detailNetTotal,
-    detailSelectionLabel,
-    discretionarySavingsItems,
-    displayedMonthActualExpenseTotal,
-    displayedMonthActualGoalTotal,
-    displayedMonthActualIncomeTotal,
-    displayedMonthActualNetTotal,
-    displayedMonthDiscretionaryExpenseTotal,
-    displayedMonthEnd,
-    displayedMonthEssentialExpenseTotal,
-    displayedMonthExpenseTotal,
-    displayedMonthGoalTotal,
-    displayedMonthLabel,
-    displayedMonthNetTotal,
-    displayedMonthPriorityExpenseTotal,
-    displayedMonthSpendingTypeTotal,
-    displayedMonthTotal,
-    editingExpenseSourceId,
-    editingGoalId,
-    editingIncomeSourceId,
-    estimatedGrossPay,
-    estimatedNetPay,
-    expenseChartPeriod,
-    expenseForm,
-    expenseMessage,
-    expensePie,
-    expensePieTooltip,
-    expenseSources,
-    expenseTypePie,
-    formData,
-    goalMessage,
+    ...state,
+    ...derived,
     handleAllocateGoalNet,
     handleBudgetCategoryChange,
     handleBudgetCategorySubmit,
@@ -1708,85 +992,16 @@ export function useBabyFinanceApp() {
     handleIncomeChange,
     handleIncomeSubmit,
     handleLogout,
-    handleSubmit,
-    handleUnconfirmGoalPayment,
-    hasAppliedEstimate,
-    hasDetailSelection,
-    incomeChartPeriod,
-    incomeForm,
-    incomeMessage,
-    incomePieTooltip,
-    incomeSources,
-    isEstimateVisible,
-    isExpenseHistoryOpen,
-    isIncomeHistoryOpen,
-    isSavingBudgetLimit,
-    isSavingExpense,
-    isSavingIncome,
-    isSubmitting,
-    message,
-    navigateMonth,
-    netSnapshotActualTotal,
-    netSnapshotLabel,
-    netSnapshotPeriod,
-    netSnapshotPlannedTotal,
-    nextBillDue,
-    nextPayday,
-    overBudgetCategories,
-    profileForm,
-    profileMessage,
-    resetExpenseEditor,
-    resetProfileEditor,
-    resetGoalEditor,
-    resetIncomeEditor,
-    selectedDay,
-    selectedDayExpenseTotal,
-    selectedDayTotal,
-    selectedExpenseBreakdown,
-    selectedIncomeBreakdown,
-    selectedMonth,
-    selectedMonthPie,
-    selectedMonthRange,
-    selectedWeekRange,
-    setActivePage,
-    setActivePlannerTab,
-    setAuthMode,
-    setExpenseChartPeriod,
-    setHasAppliedEstimate,
-    setIncomeChartPeriod,
-    setIncomeForm,
-    setIsExpenseHistoryOpen,
-    setIsIncomeHistoryOpen,
-    setNetSnapshotPeriod,
-    setMessage,
-    setProfileForm,
-    setSelectedDay,
-    setSelectedMonthRange,
-    setSelectedWeekRange,
-    setIsEditingProfile,
-    spendingTypeSnapshotPie,
-    spendingTypeSnapshotItems,
-    spendingTypeTooltip,
-    today,
-    toggleExpenseConfirmation,
-    toggleIncomeConfirmation,
-    unconfirmedExpensePayments,
-    unconfirmedIncomePayments,
-    user,
-    isEditingProfile,
-    isSavingProfile,
     handleProfileChange,
     handleProfileSubmit,
-    workWeek,
-    workWeekActualNetTotal,
-    workWeekExpenseTotal,
-    workWeekNetTotal,
-    workWeekTotal,
-    yearActualIncomeTotal,
-    yearActualNetTotal,
-    yearEnd,
-    yearExpenseTotal,
-    yearNetTotal,
-    yearTotal,
+    handleSubmit,
+    handleUnconfirmGoalPayment,
+    navigateMonth,
+    resetExpenseEditor,
+    resetGoalEditor,
+    resetIncomeEditor,
+    resetProfileEditor,
+    toggleExpenseConfirmation,
+    toggleIncomeConfirmation,
   };
 }
