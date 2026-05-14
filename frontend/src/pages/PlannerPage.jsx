@@ -172,7 +172,6 @@ function IncomePlanner() {
                 min="0.01"
                 name="amount"
                 onChange={handleIncomeChange}
-                placeholder="750"
                 required
                 step="0.01"
                 type="number"
@@ -438,7 +437,6 @@ function ExpensePlanner() {
               <input
                 name="customCategory"
                 onChange={handleExpenseChange}
-                placeholder="ex. Pet care"
                 required
                 type="text"
                 value={expenseForm.customCategory}
@@ -463,7 +461,6 @@ function ExpensePlanner() {
               min="0.01"
               name="amount"
               onChange={handleExpenseChange}
-              placeholder="75"
               required
               step="0.01"
               type="number"

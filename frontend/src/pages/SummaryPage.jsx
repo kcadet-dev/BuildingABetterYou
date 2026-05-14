@@ -45,7 +45,7 @@ function SummaryCards() {
         <p className="eyebrow">This Year (Gross)</p>
         <strong>{formatCurrency(yearTotal)}</strong>
         <span>planned income through {formatLongDate(yearEnd)}</span>
-        <small>Actual so far: {formatCurrency(yearActualIncomeTotal)}</small>
+        <small>Received so far: {formatCurrency(yearActualIncomeTotal)}</small>
       </article>
       <article>
         <p className="eyebrow">This Week (Net)</p>
@@ -97,6 +97,7 @@ function IncomeChart() {
         <PieChart
           background={selectedMonthPie}
           title={incomePieTooltip}
+          actualLabel="Received"
           centerLabel="Planned"
           total={chartIncomeTotal}
           actual={chartConfirmedIncomeTotal}
@@ -151,6 +152,7 @@ function ExpenseChart() {
           <div className="expense-pie-shell" style={{ background: expenseTypePie }} title={expensePieTooltip}>
             <PieChart
               background={expensePie}
+              actualLabel="Paid"
               className="expense-inner-pie"
               centerLabel="Planned"
               total={chartExpenseTotal}
@@ -204,13 +206,13 @@ function ChartHeading({ eyebrow, label, onChange, value }) {
   );
 }
 
-function PieChart({ actual, background, centerLabel, className = '', title = '', total }) {
+function PieChart({ actual, actualLabel = 'Actual', background, centerLabel, className = '', title = '', total }) {
   return (
     <div className={`pie-chart ${className}`.trim()} style={{ background }} title={title}>
       <div className="pie-chart-center">
         <span>{centerLabel}</span>
         <strong>{formatCurrency(total)}</strong>
-        {actual !== undefined && <small>Actual {formatCurrency(actual)}</small>}
+        {actual !== undefined && <small>{actualLabel} {formatCurrency(actual)}</small>}
       </div>
     </div>
   );
@@ -344,7 +346,7 @@ function SnapshotCard() {
         <div className="snapshot-metrics">
           <SnapshotMetric
             label="Available to budget"
-            detail={`Actual ${formatCurrency(displayedMonthActualNetTotal)}`}
+            detail={`So far ${formatCurrency(displayedMonthActualNetTotal)}`}
             value={formatCurrency(displayedMonthNetTotal)}
             valueClassName={displayedMonthNetTotal >= 0 ? 'income-amount' : 'expense-amount'}
           />
@@ -362,7 +364,7 @@ function SnapshotCard() {
           />
           <SnapshotMetric
             label="Income this month"
-            detail={`Actual ${formatSignedCurrency(displayedMonthActualIncomeTotal)}`}
+            detail={`Received ${formatSignedCurrency(displayedMonthActualIncomeTotal)}`}
             value={formatSignedCurrency(displayedMonthTotal)}
             valueClassName="income-amount"
           />
@@ -383,12 +385,12 @@ function NetBalanceCard({ actual, label, period, planned, setPeriod }) {
         : 'negative';
   const statusMessage =
     planned >= 0 && actual < 0
-      ? 'Expected net is still in the green, but confirmed spending suggests money could get tight before your next payday.'
+      ? 'Expected net is still in the green, but paid expenses so far suggest money could get tight before your next payday.'
       : planned < 0 && actual >= 0
-        ? 'Expected net is in the red, but confirmed activity is currently in the green.'
+        ? 'Expected net is in the red, but received income and paid expenses so far are currently in the green.'
         : planned >= 0
-          ? 'Expected and confirmed net are both in the green for this range.'
-          : 'Expected and confirmed net are both in the red for this range.';
+          ? 'Expected net and progress so far are both in the green for this range.'
+          : 'Expected net and progress so far are both in the red for this range.';
 
   return (
     <div className="snapshot-balance-panel">
@@ -415,7 +417,7 @@ function NetBalanceCard({ actual, label, period, planned, setPeriod }) {
         value={planned}
       />
       <BalanceBarRow
-        label="Confirmed Net"
+        label="Net So Far"
         magnitude={largestMagnitude}
         state={actualState}
         value={actual}
@@ -665,7 +667,7 @@ function GoalForm({ budgetGoalForm, editingGoalId, handleBudgetGoalChange, handl
         <input
           name="name"
           onChange={handleBudgetGoalChange}
-          placeholder="ex. Emergency fund"
+          placeholder="ex. Cancun Trip Fund"
           required
           type="text"
           value={budgetGoalForm.name}
@@ -678,7 +680,6 @@ function GoalForm({ budgetGoalForm, editingGoalId, handleBudgetGoalChange, handl
           min="0"
           name="currentAmount"
           onChange={handleBudgetGoalChange}
-          placeholder="50"
           step="0.01"
           type="number"
           value={budgetGoalForm.currentAmount}
@@ -691,7 +692,6 @@ function GoalForm({ budgetGoalForm, editingGoalId, handleBudgetGoalChange, handl
           min="1"
           name="targetAmount"
           onChange={handleBudgetGoalChange}
-          placeholder="500"
           required
           step="0.01"
           type="number"
@@ -717,7 +717,6 @@ function GoalForm({ budgetGoalForm, editingGoalId, handleBudgetGoalChange, handl
           min="0"
           name="contributionAmount"
           onChange={handleBudgetGoalChange}
-          placeholder="20"
           step="0.01"
           type="number"
           value={budgetGoalForm.contributionAmount}

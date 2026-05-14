@@ -109,7 +109,6 @@ export function AuthPage() {
               autoComplete="email"
               name="email"
               onChange={handleChange}
-              placeholder="you@example.com"
               required
               type="email"
               value={formData.email}
