@@ -16,7 +16,6 @@ export function SummaryPage() {
   return (
     <>
       <SummaryCards />
-      <QuickStats />
       <section className="summary-layout">
         <section className="chart-grid">
           <IncomeChart />
@@ -30,14 +29,11 @@ export function SummaryPage() {
 
 function SummaryCards() {
   const {
-    currentMonthActualNetTotal,
     currentMonthLabel,
     currentMonthNetTotal,
     workWeek,
-    workWeekActualNetTotal,
     workWeekNetTotal,
     yearActualIncomeTotal,
-    yearActualNetTotal,
     yearEnd,
     yearNetTotal,
     yearTotal,
@@ -57,48 +53,16 @@ function SummaryCards() {
         <span>
           {formatLongDate(workWeek.start)} to {formatLongDate(workWeek.end)}
         </span>
-        <small>Actual net: {formatCurrency(workWeekActualNetTotal)}</small>
       </article>
       <article>
         <p className="eyebrow">This Month (Net)</p>
         <strong>{formatCurrency(currentMonthNetTotal)}</strong>
         <span>planned for {currentMonthLabel}</span>
-        <small>Actual net: {formatCurrency(currentMonthActualNetTotal)}</small>
       </article>
       <article>
         <p className="eyebrow">This Year (Net)</p>
         <strong>{formatCurrency(yearNetTotal)}</strong>
         <span>planned through {formatLongDate(yearEnd)}</span>
-        <small>Actual net: {formatCurrency(yearActualNetTotal)}</small>
-      </article>
-    </section>
-  );
-}
-
-function QuickStats() {
-  const { closestActiveGoal, currentMonthAvailableToBudget, currentMonthLabel, nextBillDue, nextPayday } = useBudgetApp();
-
-  return (
-    <section className="quick-stats-grid" aria-label="Dashboard quick stats">
-      <article>
-        <span>Next Payday</span>
-        <strong>{nextPayday ? formatLongDate(nextPayday.date) : 'Not scheduled'}</strong>
-        <small>{nextPayday ? `${nextPayday.name} ${formatSignedCurrency(nextPayday.amount)}` : 'Add income to see this.'}</small>
-      </article>
-      <article>
-        <span>Next Bill Due</span>
-        <strong>{nextBillDue ? formatLongDate(nextBillDue.date) : 'Not scheduled'}</strong>
-        <small>{nextBillDue ? `${nextBillDue.name} ${formatExpenseCurrency(nextBillDue.amount)}` : 'Add expenses to see this.'}</small>
-      </article>
-      <article>
-        <span>Closest Goal</span>
-        <strong>{closestActiveGoal ? closestActiveGoal.name : 'No active goals'}</strong>
-        <small>{closestActiveGoal ? `Due ${formatLongDate(parseLocalDate(closestActiveGoal.targetDate))}` : 'Completed goals move below.'}</small>
-      </article>
-      <article>
-        <span>Available To Budget</span>
-        <strong>{formatCurrency(currentMonthAvailableToBudget)}</strong>
-        <small>Income - expenses - goals for {currentMonthLabel}</small>
       </article>
     </section>
   );
@@ -140,17 +104,15 @@ function IncomeChart() {
         <ChartLegend emptyText="No expected income in this period yet." items={selectedIncomeBreakdown} />
       </div>
 
-      <div className="chart-period-totals income-period-totals">
-        <PeriodTotal label="Selected Day" value={formatSignedCurrency(selectedDayTotal)} />
-        <PeriodTotal
-          label={incomeChartPeriod === 'yearly' ? 'This Month' : 'This Week'}
-          value={formatSignedCurrency(incomeChartPeriod === 'yearly' ? currentMonthTotal : workWeekTotal)}
-        />
-        <PeriodTotal
-          label={incomeChartPeriod === 'yearly' ? 'This Year' : 'This Month'}
-          value={formatSignedCurrency(incomeChartPeriod === 'yearly' ? yearTotal : currentMonthTotal)}
-        />
-      </div>
+      <ChartSummaryNote
+        tone="income"
+        primaryLabel="Selected Day"
+        primaryValue={formatSignedCurrency(selectedDayTotal)}
+        secondaryLabel={incomeChartPeriod === 'yearly' ? 'This Month' : 'This Week'}
+        secondaryValue={formatSignedCurrency(incomeChartPeriod === 'yearly' ? currentMonthTotal : workWeekTotal)}
+        tertiaryLabel={incomeChartPeriod === 'yearly' ? 'This Year' : 'This Month'}
+        tertiaryValue={formatSignedCurrency(incomeChartPeriod === 'yearly' ? yearTotal : currentMonthTotal)}
+      />
     </article>
   );
 }
@@ -161,6 +123,7 @@ function ExpenseChart() {
     chartDiscretionaryExpenseTotal,
     chartEssentialExpenseTotal,
     chartExpenseTotal,
+    chartPriorityExpenseTotal,
     chartPeriodLabels,
     currentMonthExpenseTotal,
     expenseChartPeriod,
@@ -196,6 +159,10 @@ function ExpenseChart() {
           </div>
           <div className="expense-ring-legend">
             <span>
+              <i className="priority-dot" /> Priority{' '}
+              {formatPercent(chartExpenseTotal === 0 ? 0 : chartPriorityExpenseTotal / chartExpenseTotal)}
+            </span>
+            <span>
               <i className="essential-dot" /> Essential{' '}
               {formatPercent(chartExpenseTotal === 0 ? 0 : chartEssentialExpenseTotal / chartExpenseTotal)}
             </span>
@@ -208,17 +175,15 @@ function ExpenseChart() {
         <ChartLegend emptyText="No expected expenses in this period yet." items={selectedExpenseBreakdown} />
       </div>
 
-      <div className="chart-period-totals expense-period-totals">
-        <PeriodTotal label="Selected Day" value={formatExpenseCurrency(selectedDayExpenseTotal)} />
-        <PeriodTotal
-          label={expenseChartPeriod === 'yearly' ? 'This Month' : 'This Week'}
-          value={formatExpenseCurrency(expenseChartPeriod === 'yearly' ? currentMonthExpenseTotal : workWeekExpenseTotal)}
-        />
-        <PeriodTotal
-          label={expenseChartPeriod === 'yearly' ? 'This Year' : 'This Month'}
-          value={formatExpenseCurrency(expenseChartPeriod === 'yearly' ? yearExpenseTotal : currentMonthExpenseTotal)}
-        />
-      </div>
+      <ChartSummaryNote
+        tone="expense"
+        primaryLabel="Selected Day"
+        primaryValue={formatExpenseCurrency(selectedDayExpenseTotal)}
+        secondaryLabel={expenseChartPeriod === 'yearly' ? 'This Month' : 'This Week'}
+        secondaryValue={formatExpenseCurrency(expenseChartPeriod === 'yearly' ? currentMonthExpenseTotal : workWeekExpenseTotal)}
+        tertiaryLabel={expenseChartPeriod === 'yearly' ? 'This Year' : 'This Month'}
+        tertiaryValue={formatExpenseCurrency(expenseChartPeriod === 'yearly' ? yearExpenseTotal : currentMonthExpenseTotal)}
+      />
     </article>
   );
 }
@@ -276,12 +241,30 @@ function ChartLegend({ emptyText, items }) {
   );
 }
 
-function PeriodTotal({ label, value }) {
+function ChartSummaryNote({
+  primaryLabel,
+  primaryValue,
+  secondaryLabel,
+  secondaryValue,
+  tertiaryLabel,
+  tertiaryValue,
+  tone,
+}) {
   return (
-    <span>
-      <small>{label}</small>
+    <div className={`chart-summary-note ${tone === 'expense' ? 'is-expense' : 'is-income'}`}>
+      <SummaryChip label={primaryLabel} value={primaryValue} />
+      <SummaryChip label={secondaryLabel} value={secondaryValue} />
+      <SummaryChip label={tertiaryLabel} value={tertiaryValue} />
+    </div>
+  );
+}
+
+function SummaryChip({ label, value }) {
+  return (
+    <div className="chart-summary-chip">
+      <span>{label}</span>
       <strong>{value}</strong>
-    </span>
+    </div>
   );
 }
 
@@ -305,8 +288,6 @@ function BudgetOutlook() {
 
 function SnapshotCard() {
   const {
-    displayedMonthActualExpenseTotal,
-    displayedMonthActualGoalTotal,
     displayedMonthActualIncomeTotal,
     displayedMonthActualNetTotal,
     displayedMonthDiscretionaryExpenseTotal,
@@ -314,64 +295,76 @@ function SnapshotCard() {
     displayedMonthExpenseTotal,
     displayedMonthGoalTotal,
     displayedMonthNetTotal,
+    displayedMonthPriorityExpenseTotal,
     displayedMonthSpendingTypeTotal,
     displayedMonthTotal,
-    netSnapshotPie,
-    netSnapshotTooltip,
+    netSnapshotActualTotal,
+    netSnapshotLabel,
+    netSnapshotPeriod,
+    netSnapshotPlannedTotal,
+    setNetSnapshotPeriod,
     spendingTypeSnapshotPie,
+    spendingTypeSnapshotItems,
     spendingTypeTooltip,
   } = useBudgetApp();
+  const flexibleSpendTotal = displayedMonthDiscretionaryExpenseTotal + displayedMonthGoalTotal;
+  const essentialShare =
+    displayedMonthSpendingTypeTotal === 0
+      ? 0
+      : (displayedMonthPriorityExpenseTotal + displayedMonthEssentialExpenseTotal) / displayedMonthSpendingTypeTotal;
+  const flexibleShare =
+    displayedMonthSpendingTypeTotal === 0 ? 0 : flexibleSpendTotal / displayedMonthSpendingTypeTotal;
 
   return (
     <section className="snapshot-grid" aria-label="Budget snapshot">
       <article className="snapshot-chart-card">
         <div className="snapshot-pie-grid">
-          <div>
-            <PieChart background={netSnapshotPie} className="snapshot-pie" centerLabel="Net" title={netSnapshotTooltip} total={displayedMonthNetTotal} />
-            <p>Income vs expenses/goals</p>
-          </div>
+          <NetBalanceCard
+            actual={netSnapshotActualTotal}
+            label={netSnapshotLabel}
+            period={netSnapshotPeriod}
+            planned={netSnapshotPlannedTotal}
+            setPeriod={setNetSnapshotPeriod}
+          />
 
-          <div>
+          <div className="snapshot-pie-panel">
             <PieChart background={spendingTypeSnapshotPie} className="snapshot-pie" centerLabel="Spend" title={spendingTypeTooltip} total={displayedMonthExpenseTotal} />
-            <p>Essential vs discretionary</p>
+            <p>Priority, essential, and discretionary</p>
+            <div className="snapshot-mini-legend">
+              {spendingTypeSnapshotItems.map((item) => (
+                <span key={item.name}>
+                  <i style={{ background: item.color }} />
+                  {item.name} {formatPercent(item.share)}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="snapshot-lines">
-          <SnapshotLine
-            label="Income"
+        <div className="snapshot-metrics">
+          <SnapshotMetric
+            label="Available to budget"
+            detail={`Actual ${formatCurrency(displayedMonthActualNetTotal)}`}
+            value={formatCurrency(displayedMonthNetTotal)}
+            valueClassName={displayedMonthNetTotal >= 0 ? 'income-amount' : 'expense-amount'}
+          />
+          <SnapshotMetric
+            label="Priority + essential"
+            detail={`${formatPercent(essentialShare)} of planned outflow`}
+            value={formatExpenseCurrency(displayedMonthPriorityExpenseTotal + displayedMonthEssentialExpenseTotal)}
+            valueClassName="expense-amount"
+          />
+          <SnapshotMetric
+            label="Flexible spending + goals"
+            detail={`${formatPercent(flexibleShare)} of planned outflow`}
+            value={formatExpenseCurrency(flexibleSpendTotal)}
+            valueClassName="goal-amount"
+          />
+          <SnapshotMetric
+            label="Income this month"
             detail={`Actual ${formatSignedCurrency(displayedMonthActualIncomeTotal)}`}
             value={formatSignedCurrency(displayedMonthTotal)}
             valueClassName="income-amount"
-          />
-          <div>
-            <span>
-              Expenses
-              <small>Actual {formatExpenseCurrency(displayedMonthActualExpenseTotal)}</small>
-              <small>
-                Essential {formatExpenseCurrency(displayedMonthEssentialExpenseTotal)} - Discretionary{' '}
-                {formatExpenseCurrency(displayedMonthDiscretionaryExpenseTotal + displayedMonthGoalTotal)}
-                <br />
-                {formatPercent(displayedMonthSpendingTypeTotal === 0 ? 0 : displayedMonthEssentialExpenseTotal / displayedMonthSpendingTypeTotal)} essential -{' '}
-                {formatPercent(
-                  displayedMonthSpendingTypeTotal === 0
-                    ? 0
-                    : (displayedMonthDiscretionaryExpenseTotal + displayedMonthGoalTotal) / displayedMonthSpendingTypeTotal,
-                )} discretionary
-              </small>
-            </span>
-            <strong className="expense-amount">{formatExpenseCurrency(displayedMonthExpenseTotal)}</strong>
-          </div>
-          <SnapshotLine
-            label="Goals"
-            detail={`Actual ${formatExpenseCurrency(displayedMonthActualGoalTotal)}`}
-            value={formatExpenseCurrency(displayedMonthGoalTotal)}
-            valueClassName="goal-amount"
-          />
-          <SnapshotLine
-            label="Net Available"
-            detail={`Actual ${formatCurrency(displayedMonthActualNetTotal)}`}
-            value={formatCurrency(displayedMonthNetTotal)}
           />
         </div>
       </article>
@@ -379,9 +372,84 @@ function SnapshotCard() {
   );
 }
 
-function SnapshotLine({ detail, label, value, valueClassName = '' }) {
+function NetBalanceCard({ actual, label, period, planned, setPeriod }) {
+  const largestMagnitude = Math.max(Math.abs(planned), Math.abs(actual), 1);
+  const plannedState = planned >= 0 ? 'positive' : 'negative';
+  const actualState =
+    actual >= 0
+      ? 'positive'
+      : planned >= 0
+        ? 'caution'
+        : 'negative';
+  const statusMessage =
+    planned >= 0 && actual < 0
+      ? 'Expected net is still in the green, but confirmed spending suggests money could get tight before your next payday.'
+      : planned < 0 && actual >= 0
+        ? 'Expected net is in the red, but confirmed activity is currently in the green.'
+        : planned >= 0
+          ? 'Expected and confirmed net are both in the green for this range.'
+          : 'Expected and confirmed net are both in the red for this range.';
+
   return (
-    <div>
+    <div className="snapshot-balance-panel">
+      <div className="snapshot-balance-heading">
+        <div>
+          <span className="eyebrow">Net Balance</span>
+          <h3>{label}</h3>
+        </div>
+        <select
+          className="chart-period-select"
+          onChange={(event) => setPeriod(event.target.value)}
+          value={period}
+        >
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </div>
+
+      <BalanceBarRow
+        label="Expected Net"
+        magnitude={largestMagnitude}
+        state={plannedState}
+        value={planned}
+      />
+      <BalanceBarRow
+        label="Confirmed Net"
+        magnitude={largestMagnitude}
+        state={actualState}
+        value={actual}
+      />
+
+      <p className={`balance-status is-${actualState}`}>{statusMessage}</p>
+    </div>
+  );
+}
+
+function BalanceBarRow({ label, magnitude, state, value }) {
+  const share = `${Math.max((Math.abs(value) / magnitude) * 100, 4)}%`;
+  const directionClassName = `is-${state}`;
+
+  return (
+    <div className="balance-bar-row">
+      <div className="balance-bar-meta">
+        <span>{label}</span>
+        <strong className={directionClassName}>
+          {formatSignedCurrency(value)}
+        </strong>
+      </div>
+
+      <div className="balance-bar-track" role="img" aria-label={`${label} net ${formatSignedCurrency(value)}`}>
+        <div className="balance-bar-axis" />
+        <div className={`balance-bar-fill ${directionClassName}`} style={{ width: share }} />
+      </div>
+    </div>
+  );
+}
+
+function SnapshotMetric({ detail, label, value, valueClassName = '' }) {
+  return (
+    <div className="snapshot-metric">
       <span>
         {label}
         <small>{detail}</small>
@@ -406,14 +474,14 @@ function BudgetLimits() {
   } = useBudgetApp();
 
   return (
-    <section className="budget-limits-panel" aria-labelledby="budget-limits-heading">
-      <div className="panel-heading">
+    <details className="budget-limits-panel summary-dropdown">
+      <summary>
         <div>
-          <p className="eyebrow">Budget Categories</p>
-          <h2 id="budget-limits-heading">Monthly Limits</h2>
+          <p className="eyebrow" id="budget-limits-heading">Monthly Limits</p>
         </div>
-      </div>
+      </summary>
 
+      <div className="summary-dropdown-content">
       <form className="budget-category-form" onSubmit={handleBudgetCategorySubmit}>
         <label>
           Category
@@ -469,10 +537,11 @@ function BudgetLimits() {
 
       {overBudgetCategories.length > 0 && (
         <p className="budget-warning">
-          Heads up: {overBudgetCategories.map((category) => category.name).join(', ')} over budget this month. Check the planned items before changing the limit.
+          Heads up: {overBudgetCategories.map((category) => category.name).join(', ')} {overBudgetCategories.length === 1 ? 'is' : 'are'} over budget this month. Review the planned expenses in {overBudgetCategories.length === 1 ? 'that category' : 'those categories'} before raising the limit.
         </p>
       )}
-    </section>
+      </div>
+    </details>
   );
 }
 
@@ -480,32 +549,36 @@ function SavingsIdeas() {
   const { discretionarySavingsItems, displayedMonthDiscretionaryExpenseTotal, displayedMonthLabel } = useBudgetApp();
 
   return (
-    <section className="savings-panel" aria-label="Discretionary savings ideas">
-      <div>
-        <p className="eyebrow">Budget Costs</p>
+    <details className="savings-panel savings-dropdown">
+      <summary>
+        <div>
+          <p className="eyebrow">Potential Savings</p>
+        </div>
+      </summary>
+
+      <div className="savings-dropdown-content">
         <h3>
           You may be able to find savings within {formatCurrency(displayedMonthDiscretionaryExpenseTotal)} of your current spend
         </h3>
+        {discretionarySavingsItems.length === 0 ? (
+          <p className="empty-state">
+            No discretionary spending is planned for {displayedMonthLabel} yet. Once you add dining, shopping, travel, or custom wants, ideas will show here.
+          </p>
+        ) : (
+          <div className="savings-list">
+            {discretionarySavingsItems.map((item) => (
+              <article className="savings-card" key={item.name}>
+                <div>
+                  <h4>{item.name}</h4>
+                  <p>Tip: {item.advice}</p>
+                </div>
+                <strong>{formatExpenseCurrency(item.amount)}</strong>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
-
-      {discretionarySavingsItems.length === 0 ? (
-        <p className="empty-state">
-          No discretionary spending is planned for {displayedMonthLabel} yet. Once you add dining, shopping, travel, or custom wants, ideas will show here.
-        </p>
-      ) : (
-        <div className="savings-list">
-          {discretionarySavingsItems.map((item) => (
-            <article className="savings-card" key={item.name}>
-              <div>
-                <h4>{item.name}</h4>
-                <p>Tip: {item.advice}</p>
-              </div>
-              <strong>{formatExpenseCurrency(item.amount)}</strong>
-            </article>
-          ))}
-        </div>
-      )}
-    </section>
+    </details>
   );
 }
 
@@ -528,14 +601,14 @@ function GoalsPanel() {
   } = useBudgetApp();
 
   return (
-    <section className="goals-panel" aria-labelledby="goals-heading">
-      <div className="panel-heading">
+    <details className="goals-panel summary-dropdown">
+      <summary>
         <div>
           <p className="eyebrow">Goals</p>
-          <h2 id="goals-heading">Possible Goals</h2>
         </div>
-      </div>
+      </summary>
 
+      <div className="summary-dropdown-content">
       <GoalForm
         budgetGoalForm={budgetGoalForm}
         editingGoalId={editingGoalId}
@@ -579,7 +652,8 @@ function GoalsPanel() {
           )}
         </div>
       </details>
-    </section>
+      </div>
+    </details>
   );
 }
 

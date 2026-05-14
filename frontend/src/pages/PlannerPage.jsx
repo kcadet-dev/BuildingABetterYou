@@ -20,12 +20,50 @@ import {
 
 export function PlannerPage() {
   return (
-    <section className="workspace-grid">
-      <PlannerFormPanel />
-      <div className="calendar-column">
-        <CalendarPanel />
-        <SelectionDetails />
-      </div>
+    <>
+      <PlannerOverviewStrip />
+      <section className="workspace-grid">
+        <PlannerFormPanel />
+        <div className="calendar-column">
+          <CalendarPanel />
+          <SelectionDetails />
+        </div>
+      </section>
+    </>
+  );
+}
+
+function PlannerOverviewStrip() {
+  const { closestActiveGoal, nextBillDue, nextPayday, overBudgetCategories, workWeek, workWeekNetTotal } = useBudgetApp();
+  const attentionText =
+    overBudgetCategories.length === 0
+      ? 'Nothing urgent right now.'
+      : `${overBudgetCategories.map((category) => category.name).join(', ')} need a closer look.`;
+
+  return (
+    <section className="planner-overview-strip" aria-label="Today and up next">
+      <article className="planner-overview-card is-primary">
+        <span>This Week Net</span>
+        <strong>{formatCurrency(workWeekNetTotal)}</strong>
+        <small>
+          {formatLongDate(workWeek.start)} to {formatLongDate(workWeek.end)}
+        </small>
+      </article>
+      <article className="planner-overview-card">
+        <span>Next Payday</span>
+        <strong>{nextPayday ? formatLongDate(nextPayday.date) : 'Not scheduled'}</strong>
+        <small>{nextPayday ? `${nextPayday.name} ${formatSignedCurrency(nextPayday.amount)}` : 'Add income to schedule one.'}</small>
+      </article>
+      <article className="planner-overview-card">
+        <span>Expected Expenses</span>
+        <strong>{nextBillDue ? formatLongDate(nextBillDue.date) : 'Not scheduled'}</strong>
+        <small>{nextBillDue ? `${nextBillDue.name} ${formatExpenseCurrency(nextBillDue.amount)}` : 'Add an expense to schedule one.'}</small>
+      </article>
+      <article className="planner-overview-card">
+        <span>Needs Attention</span>
+        <strong>{overBudgetCategories.length === 0 ? (closestActiveGoal ? closestActiveGoal.name : 'All clear') : `${overBudgetCategories.length} items`}</strong>
+        <small>{overBudgetCategories.length === 0 ? (closestActiveGoal ? `Next goal due: ${closestActiveGoal.name}` : 'Nothing urgent right now.') : attentionText}</small>
+      </article>
     </section>
   );
 }
@@ -197,7 +235,7 @@ function IncomePlanner() {
           type="button"
           onClick={() => setIsIncomeHistoryOpen((isOpen) => !isOpen)}
         >
-          <span>Income History</span>
+          <span>Manage Income Sources</span>
           <small>{incomeSources.length} saved</small>
         </button>
 
@@ -207,32 +245,34 @@ function IncomePlanner() {
               <p className="empty-state">No income sources added yet.</p>
             ) : (
               incomeSources.map((incomeSource) => (
-                <article className="income-item" key={incomeSource.id}>
-                  <div className="income-item-copy">
-                    <h3>{incomeSource.name}</h3>
-                    <p>
-                      {getFrequencyLabel(incomeSource.frequency)} -{' '}
-                      {incomeSource.useTaxEstimate
-                        ? `${incomeSource.compensationType === 'salaried' ? 'Salaried' : 'Hourly'} take-home estimate`
-                        : 'Direct amount'}
-                    </p>
-                    <span className="type-badge">
-                      {incomeSource.frequency === 'one_time' ? 'One-time' : 'Recurring'}
-                    </span>
-                    <small>Next date: {formatLongDate(parseLocalDate(incomeSource.nextPayDate.slice(0, 10)))}</small>
-                  </div>
-                  <div className="income-item-actions">
-                    <strong className="income-amount">{formatSignedCurrency(incomeSource.amount)}</strong>
-                    <div className="history-actions">
-                      <button type="button" className="secondary-button" onClick={() => handleEditIncomeSource(incomeSource)}>
-                        Edit
-                      </button>
-                      <button type="button" className="secondary-button" onClick={() => handleDeleteIncomeSource(incomeSource)}>
-                        Delete
-                      </button>
+                <details className="source-item" key={incomeSource.id}>
+                  <summary className="source-item-summary">
+                    <div className="income-item-copy">
+                      <h3>{incomeSource.name}</h3>
+                      <p>
+                        {getFrequencyLabel(incomeSource.frequency)} -{' '}
+                        {incomeSource.useTaxEstimate
+                          ? `${incomeSource.compensationType === 'salaried' ? 'Salaried' : 'Hourly'} take-home estimate`
+                          : 'Direct amount'}
+                      </p>
+                      <span className="type-badge">
+                        {incomeSource.frequency === 'one_time' ? 'One-time' : 'Recurring'}
+                      </span>
                     </div>
+                    <div className="income-item-actions">
+                      <strong className="income-amount">{formatSignedCurrency(incomeSource.amount)}</strong>
+                      <small>Next date: {formatLongDate(parseLocalDate(incomeSource.nextPayDate.slice(0, 10)))}</small>
+                    </div>
+                  </summary>
+                  <div className="source-item-actions">
+                    <button type="button" className="secondary-button" onClick={() => handleEditIncomeSource(incomeSource)}>
+                      Edit
+                    </button>
+                    <button type="button" className="secondary-button" onClick={() => handleDeleteIncomeSource(incomeSource)}>
+                      Delete
+                    </button>
                   </div>
-                </article>
+                </details>
               ))
             )}
           </div>
@@ -465,7 +505,7 @@ function ExpensePlanner() {
           type="button"
           onClick={() => setIsExpenseHistoryOpen((isOpen) => !isOpen)}
         >
-          <span>Expense History</span>
+          <span>Manage Expenses</span>
           <small>{expenseSources.length} saved</small>
         </button>
 
@@ -475,30 +515,32 @@ function ExpensePlanner() {
               <p className="empty-state">No expense sources added yet.</p>
             ) : (
               expenseSources.map((expenseSource) => (
-                <article className="income-item expense-item" key={expenseSource.id}>
-                  <div className="income-item-copy">
-                    <h3>{expenseSource.name}</h3>
-                    <p>
-                      {expenseSource.category} - {formatExpenseType(expenseSource.spendingType)} -{' '}
-                      {getFrequencyLabel(expenseSource.frequency)}
-                    </p>
-                    <span className="type-badge">
-                      {expenseSource.frequency === 'one_time' ? 'One-time' : 'Recurring'}
-                    </span>
-                    <small>Next date: {formatLongDate(parseLocalDate(expenseSource.nextDueDate.slice(0, 10)))}</small>
-                  </div>
-                  <div className="income-item-actions">
-                    <strong>{formatExpenseCurrency(expenseSource.amount)}</strong>
-                    <div className="history-actions">
-                      <button type="button" className="secondary-button" onClick={() => handleEditExpenseSource(expenseSource)}>
-                        Edit
-                      </button>
-                      <button type="button" className="secondary-button" onClick={() => handleDeleteExpenseSource(expenseSource)}>
-                        Delete
-                      </button>
+                <details className="source-item expense-item" key={expenseSource.id}>
+                  <summary className="source-item-summary">
+                    <div className="income-item-copy">
+                      <h3>{expenseSource.name}</h3>
+                      <p>
+                        {expenseSource.category} - {formatExpenseType(expenseSource.spendingType)} -{' '}
+                        {getFrequencyLabel(expenseSource.frequency)}
+                      </p>
+                      <span className="type-badge">
+                        {expenseSource.frequency === 'one_time' ? 'One-time' : 'Recurring'}
+                      </span>
                     </div>
+                    <div className="income-item-actions">
+                      <strong>{formatExpenseCurrency(expenseSource.amount)}</strong>
+                      <small>Next date: {formatLongDate(parseLocalDate(expenseSource.nextDueDate.slice(0, 10)))}</small>
+                    </div>
+                  </summary>
+                  <div className="source-item-actions">
+                    <button type="button" className="secondary-button" onClick={() => handleEditExpenseSource(expenseSource)}>
+                      Edit
+                    </button>
+                    <button type="button" className="secondary-button" onClick={() => handleDeleteExpenseSource(expenseSource)}>
+                      Delete
+                    </button>
                   </div>
-                </article>
+                </details>
               ))
             )}
           </div>
@@ -724,19 +766,18 @@ function SelectionDetails() {
 
       <div className="day-detail-grid">
         <article className="day-detail-card net-detail-card">
-          <h3>Net</h3>
+          <h3>Range Totals</h3>
           {!hasDetailSelection ? (
-            <p className="empty-state">Select a day, week, or month to see net for that range.</p>
+            <p className="empty-state">Select a day, week, or month to see the timeline for that range.</p>
           ) : (
             <div className="net-detail-total">
               <strong>{formatCurrency(detailNetTotal)}</strong>
               <small>
-                Income {formatSignedCurrency(sumAmounts(detailIncome))} - Expenses {formatExpenseCurrency(sumAmounts(detailExpenses))} - Goals{' '}
+                Expected income {formatSignedCurrency(sumAmounts(detailIncome))} - Expected expenses {formatExpenseCurrency(sumAmounts(detailExpenses))} - Planned goals{' '}
                 {formatExpenseCurrency(detailGoalTotal)}
               </small>
               <small>
-                Actual net {formatCurrency(detailActualNetTotal)} - Confirmed income {formatSignedCurrency(detailActualIncomeTotal)} - Confirmed expenses{' '}
-                {formatExpenseCurrency(detailActualExpenseTotal)} - Confirmed goals {formatExpenseCurrency(detailActualGoalTotal)}
+                Received income {formatSignedCurrency(detailActualIncomeTotal)} - Paid expenses {formatExpenseCurrency(detailActualExpenseTotal)} - Contributed goals {formatExpenseCurrency(detailActualGoalTotal)} - So far {formatCurrency(detailActualNetTotal)}
               </small>
             </div>
           )}
@@ -776,15 +817,15 @@ function DetailIncomeList({ confirmedPayments, items, selectedMonthRange, select
   if (items.length === 0) {
     return (
       <article className="day-detail-card">
-        <h3>Income</h3>
-        <p className="empty-state">No income scheduled for this selection yet.</p>
+        <h3>Income Expected</h3>
+        <p className="empty-state">No income is expected in this range yet.</p>
       </article>
     );
   }
 
   return (
     <article className="day-detail-card">
-      <h3>Income</h3>
+      <h3>Income Expected</h3>
       <div className="detail-list">
         {items.map((income) => {
           const isConfirmed = isPaymentConfirmed(getIncomePaymentKey(income), income.date, confirmedPayments, unconfirmedPayments, today);
@@ -795,13 +836,13 @@ function DetailIncomeList({ confirmedPayments, items, selectedMonthRange, select
                 {selectedWeekRange || selectedMonthRange ? `${formatLongDate(income.date)} - ${income.name}` : income.name}
                 <small>
                   {getFrequencyLabel(income.frequency)}
-                  {income.frequency === 'one_time' ? ' - One-time' : ' - Recurring'} - {isConfirmed ? 'Actual' : 'Planned'}
+                  {income.frequency === 'one_time' ? ' - One-time' : ' - Recurring'} - {isConfirmed ? 'Received' : 'Planned'}
                 </small>
               </span>
               <div className="detail-actions">
                 <strong className="income-amount">{formatSignedCurrency(income.amount)}</strong>
                 <button type="button" className="secondary-button" onClick={() => toggleIncomeConfirmation(income)}>
-                  {isConfirmed ? 'Unconfirm' : 'Confirm Paid'}
+                  {isConfirmed ? 'Mark as Not Received' : 'Mark as Received'}
                 </button>
               </div>
             </div>
@@ -816,15 +857,15 @@ function DetailExpenseList({ confirmedPayments, items, selectedMonthRange, selec
   if (items.length === 0) {
     return (
       <article className="day-detail-card">
-        <h3>Expenses</h3>
-        <p className="empty-state">No expenses scheduled for this selection yet.</p>
+        <h3>Expected Expenses</h3>
+        <p className="empty-state">No bills or expenses are due in this range yet.</p>
       </article>
     );
   }
 
   return (
     <article className="day-detail-card">
-      <h3>Expenses</h3>
+      <h3>Expected Expenses</h3>
       <div className="detail-list">
         {items.map((expense) => {
           const isConfirmed = isPaymentConfirmed(getExpensePaymentKey(expense), expense.date, confirmedPayments, unconfirmedPayments, today);
@@ -835,13 +876,13 @@ function DetailExpenseList({ confirmedPayments, items, selectedMonthRange, selec
                 {selectedWeekRange || selectedMonthRange ? `${formatLongDate(expense.date)} - ${expense.name}` : expense.name}
                 <small>
                   {expense.category} - {formatExpenseType(expense.spendingType)} -{' '}
-                  {expense.frequency === 'one_time' ? 'One-time' : 'Recurring'} - {isConfirmed ? 'Actual' : 'Planned'}
+                  {expense.frequency === 'one_time' ? 'One-time' : 'Recurring'} - {isConfirmed ? 'Paid' : 'Planned'}
                 </small>
               </span>
               <div className="detail-actions">
                 <strong>{formatExpenseCurrency(expense.amount)}</strong>
                 <button type="button" className="secondary-button" onClick={() => toggleExpenseConfirmation(expense)}>
-                  {isConfirmed ? 'Unconfirm' : 'Confirm Paid'}
+                  {isConfirmed ? 'Mark as Not Paid' : 'Mark as Paid'}
                 </button>
               </div>
             </div>
@@ -856,15 +897,15 @@ function DetailGoalList({ goals, handleConfirmGoalPayment, handleUnconfirmGoalPa
   if (goals.length === 0) {
     return (
       <article className="day-detail-card">
-        <h3>Goals</h3>
-        <p className="empty-state">No goals due for this selection yet.</p>
+        <h3>Goal Contributions</h3>
+        <p className="empty-state">No goal activity is scheduled in this range yet.</p>
       </article>
     );
   }
 
   return (
     <article className="day-detail-card">
-      <h3>Goals</h3>
+      <h3>Goal Contributions</h3>
       <div className="detail-list">
         {goals.map((goal) => (
           <div className="day-detail-item goal-detail-item" key={goal.eventId}>
@@ -874,11 +915,11 @@ function DetailGoalList({ goals, handleConfirmGoalPayment, handleUnconfirmGoalPa
             </span>
             {goal.type === 'contribution' ? (
               <button type="button" className="secondary-button" onClick={() => handleConfirmGoalPayment(goal)}>
-                Confirm Paid
+                Mark as Contributed
               </button>
             ) : goal.type === 'payment' ? (
               <button type="button" className="secondary-button" onClick={() => handleUnconfirmGoalPayment(goal)}>
-                Unconfirm
+                Mark as Not Contributed
               </button>
             ) : goal.type === 'paid_off' ? (
               <strong>🎉</strong>
@@ -906,7 +947,7 @@ function getGoalDetailText(goal) {
   }
 
   if (goal.type === 'payment') {
-    return `${formatCurrency(goal.amount)} actual payment`;
+    return `${formatCurrency(goal.amount)} contributed`;
   }
 
   if (goal.type === 'paid_off') {

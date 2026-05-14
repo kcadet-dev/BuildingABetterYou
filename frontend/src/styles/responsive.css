@@ -12,6 +12,7 @@
   .chart-period-totals,
   .budget-category-form,
   .goal-form,
+  .planner-overview-strip,
   .profile-grid,
   .quick-stats-grid,
   .snapshot-chart-card,
@@ -24,6 +25,10 @@
   .goal-card {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .snapshot-metrics {
+    grid-template-columns: 1fr;
   }
 
   .goal-status {
@@ -71,11 +76,18 @@
 
   .summary-grid,
   .income-form-grid,
-  .auth-name-grid {
+  .auth-name-grid,
+  .snapshot-pie-grid,
+  .chart-summary-note {
     grid-template-columns: 1fr;
   }
 
   .income-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .source-item-summary {
     align-items: stretch;
     flex-direction: column;
   }
@@ -95,5 +107,12 @@
 
   .calendar-day p {
     font-size: 0.68rem;
+  }
+
+  .snapshot-balance-heading,
+  .balance-bar-meta,
+  .source-item-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

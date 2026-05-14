@@ -1,29 +1,28 @@
 # BABY Finance
 
-**Building a Better You**
+BABY Finance is a small budgeting app built with React, Express, Prisma, and Supabase Postgres.
 
-BABY Finance is a small budgeting app project for learning fullstack development
-in focused commits. It tracks planned income, expenses, goals, monthly limits,
-and simple planned-vs-actual confirmations.
 
-## Project Shape
+## Tech Stack
 
-- `frontend/` contains the React and Vite app
-- `backend/` contains the Express API
-- `prisma/` contains the SQLite database schema and migrations
-- React pages are split into readable screen components
-- Backend routes are split by feature
-- Prisma schema connected to a SQLite database
-- Email/password account routes
-- CRUD routes for income sources, expense sources, and monthly budget limits
+- **Frontend:** React + Vite
+- **Backend:** Express
+- **Database:** Supabase Postgres
 
-## Folder Guide
+## Features
+
+- Income and Expense planning with categories and spending types
+- Calendar view for expected income, expenses, and goals
+- Planned vs received/paid tracking
+- Monthly budget limits
+- Goals tracking and contributions
+- Summary dashboard with charts and budgeting insights
+
+## Project Structure
 
 ```text
 frontend/
-  index.html
   src/
-    App.jsx
     components/
     context/
     hooks/
@@ -32,68 +31,71 @@ frontend/
     styles/
 
 backend/
-  index.js
   routes/
   utils/
+  index.js
+  db.js
 
 prisma/
   schema.prisma
   migrations/
 ```
 
-## Getting Started
+## Requirements
 
-1. Install dependencies:
+Before running the project, make sure you have:
 
-   ```bash
-   npm install
-   ```
+- Node.js 18+
+- npm
+- a Supabase project with a Postgres database
 
-2. Copy the environment example:
+## Setup
 
-   ```bash
-   cp .env.example .env
-   ```
-
-3. Generate the Prisma client:
-
-   ```bash
-   npm run prisma:generate
-   ```
-
-4. Run the frontend and backend together:
-
-   ```bash
-   npm run dev:fullstack
-   ```
-
-5. Open the app in your browser:
-
-   - Frontend: <http://localhost:5173>
-   - Backend health check: <http://localhost:3001/api/health>
-
-## Ideas For Future Commits
-
-- Move goals and confirmations from localStorage into Prisma
-- Add planned-vs-actual transaction records
-- Add sessions or JWT auth later
-- Add automated tests for backend routes
-- Break larger summary/planner feature files into even smaller components as features grow
-
-## Starter Account Routes
-
-Create an account:
+### 1. Clone the repository
 
 ```bash
-curl -X POST http://localhost:3001/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"firstName":"Demo","lastName":"User","dateOfBirth":"2005-05-13","email":"demo@example.com","password":"secret123"}'
+git clone <repo-url>
 ```
 
-Log in:
+### 2. Install dependencies
 
 ```bash
-curl -X POST http://localhost:3001/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"demo@example.com","password":"secret123"}'
+npm install
 ```
+
+### 3. Create an `.env` file
+
+Create a `.env` file in the project root.
+
+Example:
+
+```env
+DATABASE_URL="postgresql://YOUR_SUPABASE_CONNECTION_STRING"
+PORT=3001
+```
+
+Notes:
+
+- `DATABASE_URL` should be your **Supabase session pooler** connection string
+- if your database password contains special characters like `@` or `/`, it must be URL-encoded
+
+### 4. Run Prisma migrations
+
+```bash
+npx prisma migrate dev
+```
+
+### 5. Start the app
+
+Run frontend and backend together:
+
+```bash
+npm run dev:fullstack
+```
+
+## Local URLs
+
+Once the app is running:
+
+- Frontend: <http://localhost:5173>
+- Backend: <http://localhost:3001>

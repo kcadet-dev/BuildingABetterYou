@@ -8,7 +8,6 @@ import {
   buildCalendarWeeks,
   buildDiscretionarySavingsItems,
   buildExpenseBreakdown,
-  buildNetSnapshotItems,
   buildPieGradient,
   buildSpendingTypeSnapshotItems,
   createDefaultBudgetForm,
@@ -45,7 +44,6 @@ import {
   readStoredAuthSession,
   readStoredGoals,
   readStoredList,
-  starterGoals,
 } from '../lib/budgetHelpers.js';
 
 export function useBabyFinanceApp() {
@@ -61,7 +59,7 @@ export function useBabyFinanceApp() {
   const [budgetCategories, setBudgetCategories] = useState([]);
   const [formData, setFormData] = useState(emptyAuthForm);
   const [budgetGoalForm, setBudgetGoalForm] = useState(createDefaultGoalForm(today));
-  const [budgetGoals, setBudgetGoals] = useState(starterGoals);
+  const [budgetGoals, setBudgetGoals] = useState([]);
   const [confirmedExpensePayments, setConfirmedExpensePayments] = useState([]);
   const [confirmedIncomePayments, setConfirmedIncomePayments] = useState([]);
   const [editingGoalId, setEditingGoalId] = useState(null);
@@ -79,6 +77,7 @@ export function useBabyFinanceApp() {
   const [activePage, setActivePage] = useState('planner');
   const [expenseChartPeriod, setExpenseChartPeriod] = useState('monthly');
   const [incomeChartPeriod, setIncomeChartPeriod] = useState('monthly');
+  const [netSnapshotPeriod, setNetSnapshotPeriod] = useState('monthly');
   const [isExpenseHistoryOpen, setIsExpenseHistoryOpen] = useState(false);
   const [isIncomeHistoryOpen, setIsIncomeHistoryOpen] = useState(false);
   const [user, setUser] = useState(() => readStoredAuthSession());
@@ -87,10 +86,19 @@ export function useBabyFinanceApp() {
   const [expenseMessage, setExpenseMessage] = useState('');
   const [goalMessage, setGoalMessage] = useState('');
   const [incomeMessage, setIncomeMessage] = useState('');
+  const [profileForm, setProfileForm] = useState({
+    dateOfBirth: '',
+    email: '',
+    firstName: '',
+    lastName: '',
+  });
+  const [profileMessage, setProfileMessage] = useState('');
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingExpense, setIsSavingExpense] = useState(false);
   const [isSavingIncome, setIsSavingIncome] = useState(false);
   const [isSavingBudgetLimit, setIsSavingBudgetLimit] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [hasAppliedEstimate, setHasAppliedEstimate] = useState(false);
   const [unconfirmedExpensePayments, setUnconfirmedExpensePayments] = useState([]);
   const [unconfirmedIncomePayments, setUnconfirmedIncomePayments] = useState([]);
@@ -252,8 +260,11 @@ export function useBabyFinanceApp() {
   const displayedMonthActualGoalTotal = getActualGoalTotal(displayedMonthGoals);
   const displayedMonthActualNetTotal = displayedMonthActualIncomeTotal - displayedMonthActualExpenseTotal - displayedMonthActualGoalTotal;
   const currentMonthAvailableToBudget = currentMonthTotal - currentMonthExpenseTotal - currentMonthGoalTotal;
+  const displayedMonthPriorityExpenseTotal = displayedMonthExpenses
+    .filter((expense) => expense.spendingType === 'priority')
+    .reduce((total, expense) => total + expense.amount, 0);
   const displayedMonthEssentialExpenseTotal = displayedMonthExpenses
-    .filter((expense) => expense.spendingType === 'essential' || expense.spendingType === 'priority')
+    .filter((expense) => expense.spendingType === 'essential')
     .reduce((total, expense) => total + expense.amount, 0);
   const displayedMonthDiscretionaryExpenseTotal = displayedMonthExpenses
     .filter((expense) => expense.spendingType === 'discretionary')
@@ -434,8 +445,11 @@ export function useBabyFinanceApp() {
         : isPaymentConfirmed(getExpensePaymentKey(expense), expense.date, confirmedExpensePayments, unconfirmedExpensePayments, today),
     )
     .reduce((total, expense) => total + expense.amount, 0);
+  const chartPriorityExpenseTotal = chartExpenses
+    .filter((expense) => expense.spendingType === 'priority')
+    .reduce((total, expense) => total + expense.amount, 0);
   const chartEssentialExpenseTotal = chartExpenses
-    .filter((expense) => expense.spendingType === 'essential' || expense.spendingType === 'priority')
+    .filter((expense) => expense.spendingType === 'essential')
     .reduce((total, expense) => total + expense.amount, 0);
   const chartDiscretionaryExpenseTotal = chartExpenseItems
     .filter((expense) => expense.spendingType === 'discretionary' || expense.spendingType === 'goal')
@@ -445,6 +459,21 @@ export function useBabyFinanceApp() {
     weekly: `${formatLongDate(workWeek.start)} to ${formatLongDate(workWeek.end)}`,
     yearly: `through ${formatLongDate(yearEnd)}`,
   };
+  const netSnapshotLabel = netSnapshotPeriod === 'weekly'
+    ? `${formatLongDate(workWeek.start)} to ${formatLongDate(workWeek.end)}`
+    : netSnapshotPeriod === 'yearly'
+      ? `through ${formatLongDate(yearEnd)}`
+      : displayedMonthLabel;
+  const netSnapshotPlannedTotal = netSnapshotPeriod === 'weekly'
+    ? workWeekNetTotal
+    : netSnapshotPeriod === 'yearly'
+      ? yearNetTotal
+      : displayedMonthNetTotal;
+  const netSnapshotActualTotal = netSnapshotPeriod === 'weekly'
+    ? workWeekActualNetTotal
+    : netSnapshotPeriod === 'yearly'
+      ? yearActualNetTotal
+      : displayedMonthActualNetTotal;
   const selectedIncomeBreakdown = useMemo(
     () => buildBreakdown(chartIncome),
     [chartIncome],
@@ -464,10 +493,14 @@ export function useBabyFinanceApp() {
   const expenseTypePie = useMemo(
     () =>
       buildPieGradient(
-        buildSpendingTypeSnapshotItems(chartEssentialExpenseTotal, chartDiscretionaryExpenseTotal),
+        buildSpendingTypeSnapshotItems(
+          chartPriorityExpenseTotal,
+          chartEssentialExpenseTotal,
+          chartDiscretionaryExpenseTotal,
+        ),
         '#edf2f7',
       ),
-    [chartDiscretionaryExpenseTotal, chartEssentialExpenseTotal],
+    [chartDiscretionaryExpenseTotal, chartEssentialExpenseTotal, chartPriorityExpenseTotal],
   );
   const incomePieTooltip = useMemo(
     () => formatChartTooltip(selectedIncomeBreakdown),
@@ -477,25 +510,19 @@ export function useBabyFinanceApp() {
     () => formatChartTooltip(selectedExpenseBreakdown),
     [selectedExpenseBreakdown],
   );
-  const netSnapshotItems = useMemo(
-    () => buildNetSnapshotItems(displayedMonthTotal, displayedMonthExpenseTotal, displayedMonthGoalTotal),
-    [displayedMonthExpenseTotal, displayedMonthGoalTotal, displayedMonthTotal],
-  );
-  const netSnapshotTooltip = useMemo(
-    () => formatChartTooltip(netSnapshotItems),
-    [netSnapshotItems],
-  );
-  const netSnapshotPie = useMemo(
-    () => buildPieGradient(netSnapshotItems, '#edf2f7'),
-    [netSnapshotItems],
-  );
   const spendingTypeSnapshotItems = useMemo(
     () =>
       buildSpendingTypeSnapshotItems(
+        displayedMonthPriorityExpenseTotal,
         displayedMonthEssentialExpenseTotal,
         displayedMonthDiscretionaryExpenseTotal + displayedMonthGoalTotal,
       ),
-    [displayedMonthDiscretionaryExpenseTotal, displayedMonthEssentialExpenseTotal, displayedMonthGoalTotal],
+    [
+      displayedMonthDiscretionaryExpenseTotal,
+      displayedMonthEssentialExpenseTotal,
+      displayedMonthGoalTotal,
+      displayedMonthPriorityExpenseTotal,
+    ],
   );
   const spendingTypeSnapshotPie = useMemo(
     () => buildPieGradient(spendingTypeSnapshotItems, '#edf2f7'),
@@ -646,6 +673,15 @@ export function useBabyFinanceApp() {
   }, [user]);
 
   useEffect(() => {
+    setProfileForm({
+      dateOfBirth: user?.dateOfBirth ? String(user.dateOfBirth).slice(0, 10) : '',
+      email: user?.email || '',
+      firstName: user?.firstName || '',
+      lastName: user?.lastName || '',
+    });
+  }, [user]);
+
+  useEffect(() => {
     if (!userId || typeof globalThis === 'undefined' || !globalThis.localStorage) {
       return;
     }
@@ -703,6 +739,13 @@ export function useBabyFinanceApp() {
     }));
   };
 
+  const handleProfileChange = (event) => {
+    setProfileForm((currentProfileForm) => ({
+      ...currentProfileForm,
+      [event.target.name]: event.target.value,
+    }));
+  };
+
   const handleBudgetGoalChange = (event) => {
     setBudgetGoalForm((currentGoalForm) => ({
       ...currentGoalForm,
@@ -715,11 +758,80 @@ export function useBabyFinanceApp() {
     }));
   };
 
+  const resetProfileEditor = () => {
+    setIsEditingProfile(false);
+    setProfileMessage('');
+    setProfileForm({
+      dateOfBirth: user?.dateOfBirth ? String(user.dateOfBirth).slice(0, 10) : '',
+      email: user?.email || '',
+      firstName: user?.firstName || '',
+      lastName: user?.lastName || '',
+    });
+  };
+
   const handleBudgetCategoryChange = (event) => {
     setBudgetCategoryForm((currentForm) => ({
       ...currentForm,
       [event.target.name]: event.target.value,
     }));
+  };
+
+  const handleProfileSubmit = async (event) => {
+    event.preventDefault();
+    setProfileMessage('');
+
+    if (!user?.id) {
+      setProfileMessage('Log in before updating account details.');
+      return;
+    }
+
+    if (!profileForm.firstName.trim() || !profileForm.lastName.trim() || !profileForm.email.trim() || !profileForm.dateOfBirth) {
+      setProfileMessage('First name, last name, date of birth, and email are required.');
+      return;
+    }
+
+    if (!profileForm.email.includes('@')) {
+      setProfileMessage('Enter a valid email address.');
+      return;
+    }
+
+    setIsSavingProfile(true);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/users/${user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dateOfBirth: profileForm.dateOfBirth,
+          email: profileForm.email,
+          firstName: profileForm.firstName,
+          lastName: profileForm.lastName,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Could not update account details.');
+      }
+
+      setUser((currentUser) => ({
+        ...currentUser,
+        createdAt: data.createdAt,
+        dateOfBirth: data.dateOfBirth,
+        email: data.email,
+        firstName: data.firstName,
+        id: data.id,
+        lastName: data.lastName,
+      }));
+      setProfileMessage('Account details updated.');
+      setIsEditingProfile(false);
+    } catch (error) {
+      setProfileMessage(error.message);
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const handleBudgetCategorySubmit = async (event) => {
@@ -1525,6 +1637,7 @@ export function useBabyFinanceApp() {
     chartEssentialExpenseTotal,
     chartExpenseTotal,
     chartIncomeTotal,
+    chartPriorityExpenseTotal,
     chartPeriodLabels,
     closestActiveGoal,
     completedGoals,
@@ -1558,6 +1671,7 @@ export function useBabyFinanceApp() {
     displayedMonthGoalTotal,
     displayedMonthLabel,
     displayedMonthNetTotal,
+    displayedMonthPriorityExpenseTotal,
     displayedMonthSpendingTypeTotal,
     displayedMonthTotal,
     editingExpenseSourceId,
@@ -1612,12 +1726,17 @@ export function useBabyFinanceApp() {
     isSubmitting,
     message,
     navigateMonth,
-    netSnapshotPie,
-    netSnapshotTooltip,
+    netSnapshotActualTotal,
+    netSnapshotLabel,
+    netSnapshotPeriod,
+    netSnapshotPlannedTotal,
     nextBillDue,
     nextPayday,
     overBudgetCategories,
+    profileForm,
+    profileMessage,
     resetExpenseEditor,
+    resetProfileEditor,
     resetGoalEditor,
     resetIncomeEditor,
     selectedDay,
@@ -1638,11 +1757,15 @@ export function useBabyFinanceApp() {
     setIncomeForm,
     setIsExpenseHistoryOpen,
     setIsIncomeHistoryOpen,
+    setNetSnapshotPeriod,
     setMessage,
+    setProfileForm,
     setSelectedDay,
     setSelectedMonthRange,
     setSelectedWeekRange,
+    setIsEditingProfile,
     spendingTypeSnapshotPie,
+    spendingTypeSnapshotItems,
     spendingTypeTooltip,
     today,
     toggleExpenseConfirmation,
@@ -1650,6 +1773,10 @@ export function useBabyFinanceApp() {
     unconfirmedExpensePayments,
     unconfirmedIncomePayments,
     user,
+    isEditingProfile,
+    isSavingProfile,
+    handleProfileChange,
+    handleProfileSubmit,
     workWeek,
     workWeekActualNetTotal,
     workWeekExpenseTotal,

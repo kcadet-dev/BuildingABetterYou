@@ -8,30 +8,6 @@ const frequencyOptions = [
   { value: 'one_time', label: 'One-time', intervalDays: null },
 ];
 
-const starterGoals = [
-  {
-    contributionAmount: 25,
-    contributionFrequency: 'weekly',
-    currentAmount: 75,
-    firstContributionDate: '2026-05-15',
-    id: 1,
-    name: 'Emergency Cushion',
-    payments: [],
-    targetAmount: 500,
-    targetDate: '2026-08-01',
-  },
-  {
-    contributionAmount: 20,
-    contributionFrequency: 'weekly',
-    currentAmount: 25,
-    firstContributionDate: '2026-05-15',
-    id: 2,
-    name: 'Textbooks',
-    payments: [],
-    targetAmount: 250,
-    targetDate: '2026-06-15',
-  },
-];
 const chartColors = ['#15803d', '#22c55e', '#86efac', '#16a34a', '#4ade80', '#bbf7d0'];
 const expenseChartColors = ['#ef4444', '#f87171', '#fca5a5', '#fb7185', '#fecaca', '#fda4af'];
 const expenseCategoryOptions = [
@@ -156,21 +132,21 @@ function normalizeStoredGoals(goals) {
 
 function readStoredGoals(userId) {
   if (!userId || typeof globalThis === 'undefined' || !globalThis.localStorage) {
-    return starterGoals;
+    return [];
   }
 
   try {
     const rawGoals = globalThis.localStorage.getItem(getGoalsStorageKey(userId));
 
     if (!rawGoals) {
-      return normalizeStoredGoals(starterGoals);
+      return [];
     }
 
     const parsedGoals = JSON.parse(rawGoals);
 
-    return Array.isArray(parsedGoals) ? normalizeStoredGoals(parsedGoals) : normalizeStoredGoals(starterGoals);
+    return Array.isArray(parsedGoals) ? normalizeStoredGoals(parsedGoals) : [];
   } catch {
-    return normalizeStoredGoals(starterGoals);
+    return [];
   }
 }
 
@@ -761,16 +737,21 @@ function buildNetSnapshotItems(incomeTotal, expenseTotal, goalTotal) {
   }));
 }
 
-function buildSpendingTypeSnapshotItems(essentialTotal, discretionaryTotal) {
+function buildSpendingTypeSnapshotItems(priorityTotal, essentialTotal, discretionaryTotal) {
   const items = [
     {
+      amount: Math.max(priorityTotal, 0),
+      color: '#2563eb',
+      name: 'Priority',
+    },
+    {
       amount: Math.max(essentialTotal, 0),
-      color: '#93c5fd',
+      color: '#7dd3fc',
       name: 'Essential',
     },
     {
       amount: Math.max(discretionaryTotal, 0),
-      color: '#3b82f6',
+      color: '#93c5fd',
       name: 'Discretionary',
     },
   ];
@@ -839,5 +820,4 @@ export {
   readStoredAuthSession,
   readStoredGoals,
   readStoredList,
-  starterGoals,
 };
