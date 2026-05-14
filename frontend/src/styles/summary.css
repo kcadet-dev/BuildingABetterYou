@@ -1,0 +1,391 @@
+.goal-detail-item strong {
+  color: #854d0e;
+  text-align: right;
+}
+
+.snapshot-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+.snapshot-chart-card,
+.snapshot-card,
+.goals-panel {
+  background: #fbfcfb;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.snapshot-chart-card {
+  align-items: center;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(360px, 1.2fr) minmax(0, 1fr);
+}
+
+.snapshot-pie-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.snapshot-pie-grid p {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 0.5rem 0 0;
+  text-align: center;
+}
+
+.snapshot-pie {
+  max-width: 190px;
+}
+
+.snapshot-pie .pie-chart-center strong {
+  font-size: 1rem;
+  max-width: 7rem;
+  overflow-wrap: anywhere;
+}
+
+.snapshot-lines {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.snapshot-lines div {
+  align-items: center;
+  border: 1px solid #e5ece7;
+  border-radius: 8px;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.75rem;
+}
+
+.snapshot-lines span,
+.goal-card p {
+  color: var(--muted);
+}
+
+.snapshot-lines span {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.snapshot-lines small {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.income-amount {
+  color: var(--accent);
+}
+
+.expense-amount {
+  color: #b91c1c;
+}
+
+.goal-amount {
+  color: #a16207;
+}
+
+.goals-panel {
+  margin-top: 1rem;
+}
+
+.completed-goals {
+  border-top: 1px solid #e5ece7;
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.completed-goals > summary {
+  background: #fffbeb;
+  border: 1px solid #facc15;
+  border-radius: 8px;
+  color: #854d0e;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0.8rem 1rem;
+}
+
+.savings-panel {
+  background: #fbfcfb;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.budget-limits-panel {
+  background: #fbfcfb;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.budget-category-form {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.7fr) auto;
+}
+
+.budget-category-form label {
+  color: #334155;
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 700;
+}
+
+.budget-category-form input,
+.budget-category-form select {
+  border: 1px solid #c7d3df;
+  border-radius: 6px;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.8rem;
+}
+
+.budget-category-form button {
+  align-self: end;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.budget-limit-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.budget-limit-card {
+  align-items: center;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 1rem;
+}
+
+.budget-limit-card h3,
+.budget-limit-card p {
+  margin: 0;
+}
+
+.budget-limit-card p,
+.budget-limit-card small {
+  color: var(--muted);
+}
+
+.budget-limit-card.is-over-budget {
+  background: #fff7f7;
+  border-color: #fecaca;
+}
+
+.budget-warning {
+  background: #fffbeb;
+  border: 1px solid #facc15;
+  border-radius: 8px;
+  color: #854d0e;
+  font-weight: 800;
+  margin: 0;
+  padding: 0.85rem;
+}
+
+.savings-panel h3 {
+  margin: 0.2rem 0 0;
+}
+
+.savings-list {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.savings-card {
+  align-items: start;
+  background: #fff7f7;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #334155;
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.savings-card h4,
+.savings-card p {
+  margin: 0;
+}
+
+.savings-card p {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.savings-card strong {
+  color: #b91c1c;
+  justify-self: end;
+}
+
+.goal-form {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.75fr) minmax(0, 0.75fr) minmax(0, 0.9fr) auto;
+}
+
+.goal-form label {
+  color: #334155;
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 700;
+}
+
+.goal-form input,
+.goal-form select {
+  border: 1px solid #c7d3df;
+  border-radius: 6px;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.8rem;
+  width: 100%;
+}
+
+.goal-form input:focus,
+.goal-form select:focus {
+  border-color: var(--accent);
+  outline: 3px solid rgb(19 111 99 / 0.14);
+}
+
+.goal-form button {
+  align-self: end;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.goal-form .secondary-button {
+  background: #ebf0ed;
+  color: var(--copy);
+}
+
+.goal-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.goal-card {
+  align-items: stretch;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 1rem;
+}
+
+.goal-card.is-paid-off {
+  background: #fffbeb;
+  border-color: #facc15;
+}
+
+.goal-card-main {
+  display: grid;
+  flex: 1;
+  gap: 0.45rem;
+}
+
+.goal-card-title {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.paid-off-badge {
+  background: #fef3c7;
+  border: 1px solid #facc15;
+  border-radius: 999px;
+  color: #854d0e;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0.2rem 0.5rem;
+}
+
+.payment-history {
+  background: #f8faf9;
+  border: 1px solid #e5ece7;
+  border-radius: 8px;
+  padding: 0.65rem;
+}
+
+.payment-history summary {
+  color: #334155;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.payment-history-row {
+  align-items: center;
+  border-top: 1px solid #e5ece7;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.goal-card h3,
+.snapshot-card h3 {
+  margin: 0;
+}
+
+.goal-status {
+  align-content: start;
+  align-self: start;
+  background: #fffbeb;
+  border: 1px solid #facc15;
+  border-radius: 8px;
+  color: #854d0e;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 180px;
+  padding: 0.75rem;
+  text-align: right;
+}
+
+.goal-status button {
+  background: #ebf0ed;
+  color: var(--copy);
+  justify-self: end;
+  min-height: 2.25rem;
+  width: auto;
+}
+
+.goal-status.is-on-track {
+  background: #fffbeb;
+  border-color: #facc15;
+  color: #854d0e;
+}
+
+.goal-status span {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.goal-met-status {
+  white-space: nowrap;
+}
+
+progress {
+  accent-color: var(--accent);
+  height: 0.75rem;
+  width: 100%;
+}

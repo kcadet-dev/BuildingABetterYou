@@ -1,19 +1,45 @@
-# Baby Finance
+# BABY Finance
 
 **Building a Better You**
 
-Baby Finance is a starter template for a small budgeting app. The goal is to
-learn fullstack development in small commits instead of building the whole final
-project in one rush.
+BABY Finance is a small budgeting app project for learning fullstack development
+in focused commits. It tracks planned income, expenses, goals, monthly limits,
+and simple planned-vs-actual confirmations.
 
 ## Project Shape
 
-- React frontend with Vite
-- Login/signup screen and starter home dashboard
-- Express backend with starter API routes
+- `frontend/` contains the React and Vite app
+- `backend/` contains the Express API
+- `prisma/` contains the SQLite database schema and migrations
+- React pages are split into readable screen components
+- Backend routes are split by feature
 - Prisma schema connected to a SQLite database
-- Basic username/password account routes
-- Starter CRUD route names for budget categories
+- Email/password account routes
+- CRUD routes for income sources, expense sources, and monthly budget limits
+
+## Folder Guide
+
+```text
+frontend/
+  index.html
+  src/
+    App.jsx
+    components/
+    context/
+    hooks/
+    lib/
+    pages/
+    styles/
+
+backend/
+  index.js
+  routes/
+  utils/
+
+prisma/
+  schema.prisma
+  migrations/
+```
 
 ## Getting Started
 
@@ -48,15 +74,11 @@ project in one rush.
 
 ## Ideas For Future Commits
 
-- Add a signup/login form in React
-- Store the logged-in user in React state
-- Add sessions or JWT auth
-- Connect the React budget list to `GET /api/budgets`
-- Add a form for creating a budget category
-- Use Prisma in the backend routes
-- Add expense tracking
-- Add edit and delete buttons
-- Add simple validation and helpful error messages
+- Move goals and confirmations from localStorage into Prisma
+- Add planned-vs-actual transaction records
+- Add sessions or JWT auth later
+- Add automated tests for backend routes
+- Break larger summary/planner feature files into even smaller components as features grow
 
 ## Starter Account Routes
 
@@ -65,7 +87,7 @@ Create an account:
 ```bash
 curl -X POST http://localhost:3001/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username":"demo","password":"secret123"}'
+  -d '{"firstName":"Demo","lastName":"User","dateOfBirth":"2005-05-13","email":"demo@example.com","password":"secret123"}'
 ```
 
 Log in:
@@ -73,5 +95,5 @@ Log in:
 ```bash
 curl -X POST http://localhost:3001/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"demo","password":"secret123"}'
+  -d '{"email":"demo@example.com","password":"secret123"}'
 ```

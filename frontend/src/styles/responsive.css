@@ -1,0 +1,99 @@
+@media (max-width: 960px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .auth-highlights {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-grid,
+  .chart-body,
+  .chart-period-totals,
+  .budget-category-form,
+  .goal-form,
+  .profile-grid,
+  .quick-stats-grid,
+  .snapshot-chart-card,
+  .snapshot-grid,
+  .workspace-grid,
+  .day-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .goal-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .goal-status {
+    min-width: 0;
+    text-align: left;
+    width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .auth-page {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+
+  .app-shell {
+    padding: 1rem 1rem 2rem;
+  }
+
+  .home-header,
+  .estimate-strip {
+    align-items: stretch;
+    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+
+  .brand-mark-row {
+    align-items: flex-start;
+  }
+
+
+  .header-actions {
+    flex-direction: column;
+  }
+
+  .panel-heading:not(.calendar-header) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .calendar-header {
+    grid-template-columns: 3rem minmax(0, 1fr) 3rem;
+  }
+
+  .summary-grid,
+  .income-form-grid,
+  .auth-name-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .income-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .income-item-actions {
+    justify-items: stretch;
+  }
+
+  .calendar-day {
+    min-height: 7rem;
+    padding: 0.3rem;
+  }
+
+  .week-select-button {
+    min-height: 7rem;
+  }
+
+  .calendar-day p {
+    font-size: 0.68rem;
+  }
+}
